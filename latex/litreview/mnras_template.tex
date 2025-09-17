@@ -1,0 +1,173 @@
+% mnras_template.tex 
+%
+% LaTeX template for creating an MNRAS paper
+%
+% v3.3 released April 2024
+% (version numbers match those of mnras.cls)
+%
+% Copyright (C) Royal Astronomical Society 2015
+% Authors:
+% Keith T. Smith (Royal Astronomical Society)
+
+% Change log
+%
+% v3.3 April 2024
+%   Updated \pubyear to print the current year automatically
+% v3.2 July 2023
+%	Updated guidance on use of amssymb package
+% v3.0 May 2015
+%    Renamed to match the new package name
+%    Version number matches mnras.cls
+%    A few minor tweaks to wording
+% v1.0 September 2013
+%    Beta testing only - never publicly released
+%    First version: a simple (ish) template for creating an MNRAS paper
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Basic setup. Most papers should leave these options alone.
+\documentclass[fleqn,usenatbib]{mnras}
+
+% MNRAS is set in Times font. If you don't have this installed (most LaTeX
+% installations will be fine) or prefer the old Computer Modern fonts, comment
+% out the following line
+\usepackage{newtxtext,newtxmath}
+% Depending on your LaTeX fonts installation, you might get better results with one of these:
+%\usepackage{mathptmx}
+%\usepackage{txfonts}
+
+% Use vector fonts, so it zooms properly in on-screen viewing software
+% Don't change these lines unless you know what you are doing
+\usepackage[T1]{fontenc}
+
+% Allow "Thomas van Noord" and "Simon de Laguarde" and alike to be sorted by "N" and "L" etc. in the bibliography.
+% Write the name in the bibliography as "\VAN{Noord}{Van}{van} Noord, Thomas"
+\DeclareRobustCommand{\VAN}[3]{#2}
+\let\VANthebibliography\thebibliography
+\def\thebibliography{\DeclareRobustCommand{\VAN}[3]{##3}\VANthebibliography}
+
+
+%%%%% AUTHORS - PLACE YOUR OWN PACKAGES HERE %%%%%
+
+% Only include extra packages if you really need them. Avoid using amssymb if newtxmath is enabled, as these packages can cause conflicts. newtxmatch covers the same math symbols while producing a consistent Times New Roman font. Common packages are:
+\usepackage{graphicx}	% Including figure files
+\usepackage{amsmath}	% Advanced maths commands
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%% AUTHORS - PLACE YOUR OWN COMMANDS HERE %%%%%
+
+% Please keep new commands to a minimum, and use \newcommand not \def to avoid
+% overwriting existing commands. Example:
+%\newcommand{\pcm}{\,cm$^{-2}$}	% per cm-squared
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%% TITLE PAGE %%%%%%%%%%%%%%%%%%%
+
+% Title of the paper, and the short title which is used in the headers.
+% Keep the title short and informative.
+\title[Short title, max. 45 characters]{MUSE EELGs as an Analogue of High-Redshift JWST Galaxies: Review}
+
+% The list of authors, and the short list which is used in the headers.
+% If you need two or more lines of authors, add an extra line using \newauthor
+\author[Tom G. Hardy]{
+Tom G. Hardy,$^{1}$\thanks{E-mail: thomas.hardy@durham.ac.uk}
+\\
+% List of institutions
+$^{1}$Centre for Extragalactic Astronomy, Department of Physics, Durham University, UK.
+}
+
+% These dates will be filled out by the publisher
+\date{Accepted XXX. Received YYY; in original form ZZZ}
+
+% Prints the current year, for the copyright statements etc. To achieve a fixed year, replace the expression with a number. 
+\pubyear{\the\year{}}
+
+% Don't change these lines
+\begin{document}
+\label{firstpage}
+\pagerange{\pageref{firstpage}--\pageref{lastpage}}
+\maketitle
+
+% Abstract of the paper
+\begin{abstract}
+JWST’s early release observations have now unveiled pristine epoch-of-reionization (EoR) galaxies. These galaxies, theorised to be the first observed actively driving ionization of the intergalactic medium, share striking spectral similarities with nearby extreme emission line galaxies (EELGs), with spectra dominated by narrow emission lines and very little stellar continuum; this population of galaxies is often referred to as the Green Peas. It has been shown that integral field spectroscopy can reveal EELGs in the lensing images of massive clusters, and this project aims to use a sample of over 200 VLT-MUSE observations to select a new sample of Green Peas to investigate. By characterising the emission lines in these galaxies and therefore inferring their properties, we draw analogues to the population of early-universe galaxies revealed by JWST; it follows that this analysis further assists characterisation of the universe at Cosmic Dawn, and demonstrates the candidates theorised to have driven the reionization of the IGM following the universe’s dark ages. This review outlines the key theory features of this project, illustrating key EoR theory, traditional and integral-field spectroscopy, and spectral analysis to determine the properties of galaxies.
+\end{abstract}
+
+% Select between one and six entries from the list of approved keywords.
+% Don't make up new ones.
+\begin{keywords}
+\end{keywords}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%% BODY OF PAPER %%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+
+Modern near-field cosmology revolves around illuminating the characteristics of the universe at cosmic dawn; this era of the universe was dominated by pristine, low metallicity (popIII stars) and young (redshift $z>7$) galaxies with narrow spectral emission and very little stellar continuum \citep{klessen, zaroubi}. JWST, designed to unveil the universe when it was young, has now identified many massive galaxies at cosmic dawn, starting with the \cite{Rhoads} early-release observations of $z\sim8$ Pea-like galaxies, all the way out to the \cite{Naidu} $z=14.4$ galaxy, MoM-z14.
+
+The work of \cite{Rhoads} identifies the first population of JWST epoch-of-reionization galaxies, thought to be some of the first observed candidates driving the reionization of the galactic medium after cosmic dawn, and this work demonstrates a comparison between these galaxies and nearby extreme emission line galaxies, also known as Green Peas. The work of \cite{jauzac} demonstrates that these peas can be identified from the radial images of massive galaxy clusters (in that case, the cluster MACSJ0417.5-1154), and this paper is designed to apply this methodology to a further 200 VLT-MUSE observations. In order to determine the metallicity of the spectra of these galaxies, we apply the novel direct $\mathrm{T}_E$ calibration method of \cite{jiang} of the O$_{II}$ to O$_{III}$ ratio R23. This investigation is designed to apply these novel methods to nearby Green Pea observations to further strengthen comparisons to EoR galaxies and further illustrate properties of galaxies at cosmic dawn. 
+
+This review is designed to outline this project’s key theory. We begin in \textbf{Section~\ref{sec:cdawn}} by explaining Cosmic Dawn, the Epoch of Reionization, and the stellar and galactic formation theory underpinning the early evolution of galaxies; this provides necessary context behind the young galaxies identified by JWST. We then outline the theory behind the strong line emitter Green Peas, and their galaxy evolution and key features including contemporary work and lensing identification methods in \textbf{Section~\ref{sec:eelg}}. \textbf{Section~\ref{sec:spectro}} outlines the theory behind both traditional (that of JWST-NIRSpec) and integral field (that of VLT-MUSE) spectroscopy; \textbf{Section~\ref{sec:method}} then explores spectral techniques and line calibration to demonstrate metallicity inference techniques. We conclude (\textbf{Section~\ref{sec:conc}} ) by providing a brief methodology of the project and research outline.
+
+\section{Cosmic Dawn and the Epoch of Reionisation}
+\label{sec:cdawn}
+
+\section{Extreme Emission Line Galaxies}
+\label{sec:eelg}
+\subsection{Introduction to Green Peas}
+\subsection{Gravitational Lensing}
+
+\section{Traditional and IFU Spectroscopy}
+\label{sec:spectro}
+\subsection{Introduction to Spectroscopy}
+\subsection{IFU Spectroscopy}
+\subsection{JWST and VLT-MUSE}
+
+\section{Spectral Analysis and Line Ratios}
+\label{sec:method}
+\subsection{Analysis Techniques}
+\subsection{Galaxy Metallicities}
+
+\section{Conclusions}
+\label{sec:conc}
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%% REFERENCES %%%%%%%%%%%%%%%%%%
+
+% The best way to enter references is to use BibTeX:
+
+\bibliographystyle{mnras}
+\bibliography{example} % if your bibtex file is called example.bib
+
+
+% Alternatively you could enter them by hand, like this:
+% This method is tedious and prone to error if you have lots of references
+%\begin{thebibliography}{99}
+%\bibitem[\protect\citeauthoryear{Author}{2012}]{Author2012}
+%Author A.~N., 2013, Journal of Improbable Astronomy, 1, 1
+%\bibitem[\protect\citeauthoryear{Others}{2013}]{Others2013}
+%Others S., 2012, Journal of Interesting Stuff, 17, 198
+%\end{thebibliography}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%% APPENDICES %%%%%%%%%%%%%%%%%%%%%
+
+\appendix
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Don't change these lines
+\bsp	% typesetting comment
+\label{lastpage}
+\end{document}
+
+% End of mnras_template.tex
