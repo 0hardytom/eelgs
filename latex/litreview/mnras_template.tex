@@ -66,12 +66,13 @@
 
 % Title of the paper, and the short title which is used in the headers.
 % Keep the title short and informative.
-\title[Short title, max. 45 characters]{MUSE EELGs as an Analogue of High-Redshift JWST Galaxies: Review}
+\title[MPhys Project Review]{MUSE EELGs as an Analogue of High-Redshift JWST Galaxies: Review}
 
 % The list of authors, and the short list which is used in the headers.
 % If you need two or more lines of authors, add an extra line using \newauthor
 \author[Tom G. Hardy]{
-Tom G. Hardy,$^{1}$\thanks{E-mail: thomas.hardy@durham.ac.uk}
+Tom G. Hardy,$^{1}$
+% \thanks{E-mail: thomas.hardy@durham.ac.uk}
 \\
 % List of institutions
 $^{1}$Centre for Extragalactic Astronomy, Department of Physics, Durham University, UK.
@@ -105,26 +106,56 @@ JWST’s early release observations have now unveiled pristine epoch-of-reioniza
 
 \section{Introduction}
 
-Modern near-field cosmology revolves around illuminating the characteristics of the universe at cosmic dawn; this era of the universe was dominated by pristine, low metallicity (popIII stars) and young (redshift $z>7$) galaxies with narrow spectral emission and very little stellar continuum \citep{klessen, zaroubi}. JWST, designed to unveil the universe when it was young, has now identified many massive galaxies at cosmic dawn, starting with the \cite{Rhoads} early-release observations of $z\sim8$ Pea-like galaxies, all the way out to the \cite{Naidu} $z=14.4$ galaxy, MoM-z14.
+Modern near-field cosmology revolves around illuminating the characteristics of the universe at cosmic dawn; this era of the universe was dominated by pristine, low metallicity (popIII stars) and young (redshift $z>7$) galaxies with narrow spectral emission and very little stellar continuum \citep{klessen, zaroubi}. JWST, designed to unveil the universe when it was young, has now identified many massive galaxies at cosmic dawn, starting with the \cite{Rhoads} early-release observations of $z\sim8$ Pea-like galaxies, all the way out to the \cite{naidu_2025} $z=14.4$ galaxy, MoM-z14. The goal of studying these high redshift objects is to understand the driving factors behind the reionization of the intergalactic medium after Cosmic Dawn.
 
-The work of \cite{Rhoads} identifies the first population of JWST epoch-of-reionization galaxies, thought to be some of the first observed candidates driving the reionization of the galactic medium after cosmic dawn, and this work demonstrates a comparison between these galaxies and nearby extreme emission line galaxies, also known as Green Peas. The work of \cite{jauzac} demonstrates that these peas can be identified from the radial images of massive galaxy clusters (in that case, the cluster MACSJ0417.5-1154), and this paper is designed to apply this methodology to a further 200 VLT-MUSE observations. In order to determine the metallicity of the spectra of these galaxies, we apply the novel direct $\mathrm{T}_E$ calibration method of \cite{jiang} of the O$_{II}$ to O$_{III}$ ratio R23. This investigation is designed to apply these novel methods to nearby Green Pea observations to further strengthen comparisons to EoR galaxies and further illustrate properties of galaxies at cosmic dawn. 
+The work of \cite{Rhoads} identifies the first population of JWST epoch-of-reionization galaxies, thought to be some of the first observed candidates driving the reionization of the galactic medium after cosmic dawn, and this work demonstrates a comparison between these galaxies and nearby extreme emission line galaxies, also known as Green Peas. The work of \cite{jauzac} demonstrates that these peas can be identified from the radial images of massive galaxy clusters (in that case, the cluster MACSJ0417.5-1154), and this paper is designed to apply this methodology to a further 200 VLT-MUSE observations. In order to determine the metallicity of the spectra of these galaxies, we apply the novel direct $\mathrm{T}_E$ calibration method of \cite{jiang} of the O$_{II}$ to O$_{III}$ ratio R23. This investigation is designed to apply these novel methods to nearby Green Peas observed using strongly lensed images from massive clusters to further strengthen comparisons to EoR galaxies, ultimately illustrating properties of the galaxies at cosmic dawn by using local green peas as a spectral analogue. 
 
-This review is designed to outline this project’s key theory. We begin in \textbf{Section~\ref{sec:cdawn}} by explaining Cosmic Dawn, the Epoch of Reionization, and the stellar and galactic formation theory underpinning the early evolution of galaxies; this provides necessary context behind the young galaxies identified by JWST. We then outline the theory behind the strong line emitter Green Peas, and their galaxy evolution and key features including contemporary work and lensing identification methods in \textbf{Section~\ref{sec:eelg}}. \textbf{Section~\ref{sec:spectro}} outlines the theory behind both traditional (that of JWST-NIRSpec) and integral field (that of VLT-MUSE) spectroscopy; \textbf{Section~\ref{sec:method}} then explores spectral techniques and line calibration to demonstrate metallicity inference techniques. We conclude (\textbf{Section~\ref{sec:conc}} ) by providing a brief methodology of the project and research outline.
+This review outlines the project’s key theory. We begin in \textbf{Section~\ref{sec:cdawn}} with Cosmic Dawn, the Epoch of Reionization, and the stellar and galactic formation theory underpinning the early evolution of galaxies; this provides necessary context behind the young galaxies identified by JWST. We then outline the theory behind the strong line emitter Green Peas, and their galaxy evolution and key features including contemporary techniques to analogue early UV emitting galaxies in \textbf{Section~\ref{sec:eelg}}. \textbf{Section~\ref{sec:spectro}} outlines the theory behind both traditional (that of JWST-NIRSpec) and integral field (that of VLT-MUSE) spectroscopy; \textbf{Section~\ref{sec:method}} then explores spectral techniques and line calibration to demonstrate metallicity inference techniques. Finally, we provide a brief introduction to strong lensing astronomy in \textbf{Section~\ref{sec:lens}}. We conclude (\textbf{Section~\ref{sec:conc}} ) by providing a brief methodology of the project and research outline.
 
 \section{Cosmic Dawn and the Epoch of Reionisation}
 \label{sec:cdawn}
 
-\subsection{Cosmic Dawn: A brief history}
-Following the temperature of the very young universe falling below 3000K, ions and electrons formed from the big bang $400\,$~kyr earlier (re)combined into primarily neutral hydrogen (H$_I$) and helium \citep{Barkana_2001}. At this point photons decoupled from baryons and the universe became transparent, releasing the cosmic microwave background relic signature and beginning the \textit{Dark Ages} at $z\sim1100$. This CMB contained an imprint of both the baryonic and dark matter density fluctuations within the plasma of the universe at this time \citep{smoot_1992}; the baryonic oscillations, damped by acoustic oscillations and diffusion, were much weaker than the dark matter fluctuations and led to the formation of virialized dark matter haloes, capturing baryons \citep{tacchella_2025,Tacchella_2018}. These baryons cooled within the haloes and formed molecular hydrogen and therefore the very first stars \citep{bromm_2004}.
+\subsection{Cosmic Dawn: A Brief History}
+Following the temperature of the very young universe falling below 3000K, ions and electrons formed from the big bang $400\,$~kyr earlier (re)combined into primarily neutral hydrogen (H$_I$) and helium \citep{Barkana_2001}. At this point photons decoupled from baryons and the universe became transparent, releasing the cosmic microwave background relic signature and beginning the \textit{Dark Ages} at $z\sim1100$. This CMB contained an imprint of both the baryonic and dark matter density fluctuations within the plasma of the universe at this time \citep{smoot_1992}; the baryonic oscillations, damped by acoustic oscillations and diffusion, were much weaker than the dark matter fluctuations and led to the formation of virialized dark matter haloes, capturing baryons \citep{tacchella_2025,Tacchella_2018}. These baryons cooled within the haloes forming molecular hydrogen and therefore the very first stars \citep{bromm_2004}.
 
-These primordial stars ended the \textit{Dark Ages} at the point of \textit{Cosmic Dawn} around $z\sim30$ \citep{tacchella_2025}. The stars, formed from a neutral intergalactic medium (IGM), contained only primordial hydrogen and helium, free of any metals: these young stars are labelled PopIII and lack any current observational candidates, given the likely age of a PopIII star in the present universe \citep{klessen}. As these young galaxies began to emit ionizing radiation into the IGM, they began to create a patchwork of neutral and ionized (H$_II$) hydrogen, which eventually spread to a completely re-ionized universe; this era is therefore called the Epoch of Reionization \citep{Ciardi_2005, Morales_2010}. Current constraints place the EoR on $z\sim[6-15]$, with primordial indicators favouring a later onset \citep{planck_2016}. The EoR marks the watershed epoch at which the role of baryons becomes prominent in the structure and evolution of the universe; before this cosmic gas and plasma played a marginal role, and dark matter is believed to have dominated \citep{zaroubi}.
-\subsection{Tension Around EoR Galaxy Evolution}
+These primordial stars ended the \textit{Dark Ages} at the point of \textit{Cosmic Dawn} around $z\sim30$ \citep{tacchella_2025}. The stars, formed from a neutral intergalactic medium (IGM), contained only primordial hydrogen and helium, free of any metals: these early stars are labelled `Population-III' and lack any current observational candidates, given the likely age of such a star in the present universe \citep{klessen}. As these young galaxies began to emit ionizing radiation into the IGM, they began to create a patchwork of neutral and ionized (H$_II$) hydrogen, which eventually spread to a completely re-ionized universe; this era is therefore called the Epoch of Reionization \citep{Ciardi_2005, Morales_2010}. Current constraints place the EoR on $z\sim[6-15]$, with primordial indicators favouring a later onset \citep{planck_2016}. The EoR marks the 
+epoch at which the role of baryons becomes prominent in the structure and evolution of the universe; before this cosmic gas and plasma played a marginal role, and dark matter is believed to have dominated \citep{zaroubi}.
+
+Observational evidence for the ionization of the intergalactic medium primarily comprises the $z\sim[2.5,6.6]$ Lyman Alpha Forest, theorised by \cite{gunn_1965}, and the thompson-scattered polarization of the CMB, theorized by \cite{peebles_1970}. We briefly outline these evidences in this section, although it should be noted that neither completely constrain the EoR; it is believed that the detection of the redshifted global 21-cm (the hyperfine spin flip signal projected onto the radio background at cosmic dawn) will provide a much stronger probe of the IGM at EoR, although this signal is yet to be detected \citep{hogan_1979,scott_1990,fialkov_2013,Bevins_2022,Abdurashidova_2022,dhanda_2025}.
+
+The IGM can be analysed by use of the Lyman-$\alpha$ forest, which is an absorption feature in the spectra of distant quasars discovered by \cite{gunn_1965}. The Lyman-$\alpha$ line occurs at a rest frame $1215.57\;$\r{A} and the continuously redshifted line will imprint a trough on the background spectra of quasars bluer than the line in an expanding universe \citep{Rauch_1998}. The probability of an absorption is dictated by the optical depth of the photons, $\tau_{\alpha}$, and can be inferred from the Lyman Alpha forest as a mild probability $\tau_{\alpha}\leq1$; \cite{gunn_1965} use this to infer the density of neutral hydrogen in the early universe. At a given observed frequency $\nu_0$ (related to the photon's frequency $\nu$ by $\nu=\nu_0(1+z)$) in a flat universe with cosmological constant, these photons have an optical depth $\tau_{\alpha}$ which follows 
+\begin{equation}
+\label{eq:odepth}
+    \tau_{\alpha}(\nu) = \int^Q_O dz\,\sigma_{\alpha}(\nu)n_{\mathrm{HI}} \frac{cH_0^{-1}}{(1+z)\sqrt{\Omega_m(1+z)^3+\Omega_{\Lambda}}}
+\end{equation}
+for comoving distance between observer and quasar $O$ and $Q$, $n_{\mathrm{HI}}$ the proper HI number density at the observer and $\sigma_{\alpha}$ the scattering cross section. Parametrising $n_{\mathrm{HI}}=n_{\mathrm{H}}x_{\mathrm{HI}}$ for the neutral fraction of hydrogen $x_{\mathrm{HI}}$, integrating equation \eqref{eq:odepth} along the line of sight and rearranging for $n_{\mathrm{HI}}$ gives
+\begin{equation}
+    \frac{n_{\mathrm{HI}}}{n_{\mathrm{H}}}\approx10^{-4}\tau_\alpha\sqrt{\Omega_mh(1+z)^3}.
+\end{equation}
+Given this clearly implies the ionized fraction at some $\tau_\alpha\sim1$ is on the order of $10^{-4}$ at the mean density of the universe, the fact the Ly$\alpha$ forest is observed at all means the universe is highly ionized at least until $z\sim6$ \citep{zaroubi}. 
+
+The polarization of the CMB is a consequence of the $\Lambda$CDM model's dark matter fluctuations leading to flocculation into primordial halos \citep{Hu_1997}. These fluctutations imprint polarized anisotropies into the CMB and can be measured in the $E$ and $B$ multipoles of the CMB, along with deducing an optical depth of the CMB photons scattered off reionization-released free electrons \citep{bond_1984,Hu_1997}. These methods were carried out most notably by the PLANCK collaboration, which determined an average redshift of reionization at $\bar{z}\in[7.8,8.8]$ across a period $\Delta z<2.8$, further implying the universe is ionized at less than $10\%$ for $z>10$ \citep{planck_2016}.
+
+Studying galaxies in this era therefore unlocks further constraints to the characteristics of the early universe; cosmic dawn limits the window at which traditional astronomy can make inferences about the early universe, and stochastic background gravitational wave astronomy is the only current technique that can observe earlier than the CMB last scattering surface; these JWST observations therefore push the limit of astronomy into the earliest Myrs of the universe.
+
+
+
+\subsection{Challenges To Uncovering EoR Galaxy Evolution}
+With the advent of JWST, it is now possible to take direct observations of galaxies in this epoch, testing theoretical predictions as to EoR lateness and the populations of galaxies in the early universe. An overdensity of active UV emitters, however, has become apparent from recent JWST observations, compared to earlier theory \citep{Tacchella_2018,tacchella_2025}. Pre-JWST theoretical models \citep{Tacchella_2018, Mason_2015} assume a star formation rate is directly proportional to the gas available in the surrounding halo, such that
+\begin{equation}
+    \mathrm{SFR}(M_h,z)=f_b\;\varepsilon(M_h)\frac{d}{dt}\big(M_h\big)
+\end{equation}
+for star-forming efficiency $\varepsilon(M_h)$, $f_b=0.17$ is the cosmic baryon fraction and $d[M_h(z)]/dt$ the halo dark matter accretion rate.
+
+Although this model reproduces key observations across cosmic time  \citep{Mason_2015}, JWST has now identified over 400 UV-bright (IGM-reionizing) $z>10$ galaxy candidates \citep{hainline_2023} and spectroscopically confirmed at least fourteen \citep{curtislake_2022,schouws_2024}, including MoM-z14 at $z=14.4$ \citep{naidu_2025}. This highlights an overdensity compared to theoretical predictions at this stage of the EoR \citep{tacchella_2025}. This overdensity, and the presence of a number of very heavy AGN accreting in the super-Eddington limit \citep{maiolino_2024, Tacchella_2023_2,greene_2024}, sit in tension with the SFE and CMB predicted onsets of reionization \citep{planck_2016, Mason_2015}. Although several authors have considered modifications to fundamental physics at this era, including to dark matter \citep{dayal_2024}, energy \citep{shen_2024} and the primordial power spectrum \citep{Parashari_2023},  \cite{tacchella_2025} suggests an extension to the SFE as increasing towards earlier cosmic time. This adaptation and a combination of low dust attenuation at high $z$ \citep{Mirocha_2022}, along with a top heavy early-stage stellar mass function \citep{Yung_2023}(the popIII SMF is still poorly understood) and the contribution to UV from AGN sources may help explain the evolution of galaxies and the IGM in the early EoR.
+
+Even with these JWST NIRCam spectroscopic observations, however, studying the spectra of these early galaxies is challenging; in order to evaluate the amount of radiation emitted from these galaxies and therefore their contribution to the ionization of the IGM, it becomes necessary to study the spectral details of these galaxies, including their specific emission lines, escape fractions and metallicities. This is challenging due to dust attenuation \citep{Inoue_2014} (the early universe's HI is completely opaque to these young galaxies' highly ionizing Lyman continuum) and the faintness of these objects \citep{vanzella_2010}, and contamination from lower redshift sources \citep{Grazian_2015}. It is instead proposed to evaluate these properties through spectral proxies in the local universe, the most similar candidates of which are a class of highly star forming, low-continuum, emission-line-dominated nearby galaxies, discovered in the early 21st century \citep{Cardamone}: Green Peas.
 
 
 \section{Extreme Emission Line Galaxies}
 \label{sec:eelg}
 \subsection{Introduction to Green Peas}
-\subsection{Gravitational Lensing}
+\subsection{Green Peas as a High-$z$ Proxy}
 
 \section{Traditional and IFU Spectroscopy}
 \label{sec:spectro}
@@ -136,6 +167,9 @@ These primordial stars ended the \textit{Dark Ages} at the point of \textit{Cosm
 \label{sec:method}
 \subsection{Analysis Techniques}
 \subsection{Galaxy Metallicities}
+
+\section{Lensing Astronomy}
+\label{sec:lens}
 
 \section{Conclusions}
 \label{sec:conc}
