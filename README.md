@@ -10,12 +10,9 @@ __This repository contains all my code and research for my MPhys Project, comple
 
 ## Repository Structure
 
--   `cubes/`: Contains the FITS datacubes used for analysis.
--   `latex/`: Holds LaTeX templates and style files for report writing.
+-   `latex/`: Holds LaTeX backups for the project. OCT25: contains Literature Review
 -   `notebooks/`: Contains Jupyter notebooks, Python scripts, and meeting notes for data analysis and exploration.
     -   `week0/`, `week1/`, ...: Meeting notes and summaries organized by week.
     -   `week2/`: Contains the primary analysis scripts (`IFU_tools.py`) and notebooks.
 -   `papers/`: A collection of relevant research papers and literature.
--   `test/`: For housing test scripts.
--   `literature_review.tex`: The main LaTeX file for the literature review.
--   `references.bib`: The BibTeX file for managing citations.
+-   `src/`: Source code for the tools developed during this project.
