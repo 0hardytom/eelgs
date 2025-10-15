@@ -71,10 +71,10 @@ def analyze_galaxy_spectrum(cube_path, ra, dec, radius, z):
 
     # 4. Measure Emission Line Properties
     print("\nFitting emission lines...")
-    # De-redshift the spectrum to the rest frame
+    # De-redshift the spectrum to the rest frame by manually adjusting the wavelength solution
     spec_rest = spec.copy()
-    spec_rest.wave.set_crval(spec.wave.get_crval() / (1 + z))
-    spec_rest.wave.set_cdelt(spec.wave.get_cdelt() / (1 + z))
+    spec_rest.wave.set_crval(spec_rest.wave.get_crval() / (1 + z))
+    spec_rest.wave.set_step(spec_rest.wave.get_step() / (1 + z))
 
     # Define emission lines (rest-frame wavelengths in Angstroms)
     lines = {
