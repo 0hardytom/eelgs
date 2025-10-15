@@ -58,9 +58,10 @@ def plot_spectrum_and_cutout(spec, cube, ra, dec, radius, title, pref):
     ax_cont.set_xticks([])
     ax_cont.set_yticks([])
 
-    center_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]
+    ny, nx = im_cutout.shape
+    center_pix_yx = (ny / 2, nx / 2)
     radius_pix = radius / im_cutout.wcs.get_step()[0]
-    aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), radius_pix, edgecolor='white', facecolor='none', lw=1)
+    aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), radius_pix, edgecolor='black', facecolor='none', lw=2)
     ax_cont.add_patch(aperture_circle)
 
     pf.fix_plot([ax])
@@ -154,7 +155,7 @@ def plot_line_fits(spec_rest, line_fits, z, z_err, title, pref):
         print('[NII]/Halpha could not be calculated.\n')
         title_lines.append(r'$\log([\mathrm{NII}] / \mathrm{H}\alpha)$ not calculated')
 
-    fig.suptitle('\n'.join(title_lines), y=1.0)
+    fig.suptitle('\n'.join(title_lines), y=1.0, bbox=dict(boxstyle='square,pad=0.5', fc='white', ec='black', lw=1))
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     pf.fix_plot(axes.flatten())
     fig.savefig(f'figs/{title}_{pref}_lines.png', dpi=600, bbox_inches='tight')
