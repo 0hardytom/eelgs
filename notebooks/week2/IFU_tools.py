@@ -54,14 +54,13 @@ def plot_spectrum_and_cutout(spec, cube, ra, dec, radius, title, pref):
     im_cutout = im_cont.subimage(center=(dec, ra), size=4.0)
 
     vmin, vmax = ZScaleInterval().get_limits(im_cutout.data)
-    im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False)
+    im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False, cmap='magma')
     ax_cont.set_xticks([])
     ax_cont.set_yticks([])
 
-    ny, nx = im_cutout.shape
-    center_pix_yx = (ny / 2, nx / 2)
-    radius_pix = radius / im_cutout.wcs.get_step()[0]
-    aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), radius_pix, edgecolor='black', facecolor='none', lw=2)
+    center_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]
+    # radius_pix = radius / im_cutout.wcs.get_step()[0] #broken
+    aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), 3, edgecolor='white', facecolor='none', lw=2, zorder=10)
     ax_cont.add_patch(aperture_circle)
 
     pf.fix_plot([ax])
@@ -77,9 +76,9 @@ def measure_redshift(spec, z_guess):
             fit = spec.gauss_fit(lmin=(obs_wave_guess - 30), lmax=(obs_wave_guess + 30), plot=False)
             line_z = (fit.lpeak / rest_wave) - 1
             redshifts.append(line_z)
-            print(f'  - {name}: Found at {fit.lpeak:.2f} \AA, z = {line_z:.5f}')
+            print(fr'  - {name}: Found at {fit.lpeak:.2f} \AA, z = {line_z:.5f}')
         except Exception:
-            print(f'  - {name}: Fit failed near {obs_wave_guess:.2f} \AA.')
+            print(fr'  - {name}: Fit failed near {obs_wave_guess:.2f} \AA.')
 
     if not redshifts:
         print('\nError: Could not measure redshift. Using initial guess.')
@@ -125,7 +124,7 @@ def plot_line_fits(spec_rest, line_fits, z, z_err, title, pref):
             ax.set_title(f'{titles[name]} (Fit Failed)')
             ax.text(0.5, 0.5, 'No data', ha='center', va='center', transform=ax.transAxes)
     
-    title_lines = [f'Spectroscopic Redshift z = {z:.5f} \u00B1 {z_err:.5f}' if z_err > 0 else f'Spectroscopic Redshift z = {z:.5f}']
+    title_lines = [fr'$z = {z:.5f} \pm {z_err:.5f}$' if z_err > 0 else f'$z = {z:.5f}$']
     
     oiii_fit = line_fits.get('OIII_5007')
     hbeta_fit = line_fits.get('Hbeta')
@@ -155,12 +154,12 @@ def plot_line_fits(spec_rest, line_fits, z, z_err, title, pref):
         print('[NII]/Halpha could not be calculated.\n')
         title_lines.append(r'$\log([\mathrm{NII}] / \mathrm{H}\alpha)$ not calculated')
 
-    fig.suptitle('\n'.join(title_lines), y=1.0, bbox=dict(boxstyle='square,pad=0.5', fc='white', ec='black', lw=1))
+    fig.suptitle('\n'.join(title_lines), y=.95, bbox=dict(boxstyle='square,pad=0.5', fc='white', ec='black', lw=1))
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     pf.fix_plot(axes.flatten())
     fig.savefig(f'figs/{title}_{pref}_lines.png', dpi=600, bbox_inches='tight')
 
-def analyze_galaxy_spectrum(cube_path, ra, dec, radius, z_guess, title, pref):
+def analyse_galaxy_spectrum(cube_path, ra, dec, radius, z_guess, title, pref):
     cube = load_cube(cube_path)
     spec = extract_spectrum(cube, ra, dec, radius)
     plot_spectrum_and_cutout(spec, cube, ra, dec, radius, title, pref)
@@ -171,7 +170,7 @@ def analyze_galaxy_spectrum(cube_path, ra, dec, radius, z_guess, title, pref):
     return spec, line_fits
 
 if __name__ == '__main__':
-    analyze_galaxy_spectrum(
+    analyse_galaxy_spectrum(
         cube_path=CUBE_PATH,
         ra=RA_DEG,
         dec=DEC_DEG,
