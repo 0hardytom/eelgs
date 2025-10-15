@@ -177,6 +177,6 @@ if __name__ == '__main__':
         radius=RADIUS_ARCSEC,
         z_guess=Z_GUESS,
         title=TITLE,
-        pref='MACS0159'
+        pref='MACS'
     )
     plt.show()
