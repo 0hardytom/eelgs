@@ -7,7 +7,8 @@ import plotfancy as pf
 from matplotlib.patches import Circle
 from astropy.visualization import ZScaleInterval
 
-CUBE_PATH = '../../cubes/macs0159m34_COMBINED_CUBE_MED_FINAL.fits'
+# CUBE_PATH = '../../cubes/macs0159m34_COMBINED_CUBE_MED_FINAL.fits'
+CUBE_PATH = '../../cubes/s780_COMBINED_CUBE_MED_FINAL.fits'
 TITLE = 'MACS'
 RADIUS_ARCSEC = .6
 Z_GUESS = 0.249
@@ -64,7 +65,7 @@ def plot_spectrum_and_cutout(spec, cube, ra, dec, radius, title, pref):
     ax_cont.add_patch(aperture_circle)
 
     pf.fix_plot([ax])
-    fig.savefig(f'figs/{title}_{pref}_spectra.png', dpi=600, bbox_inches='tight')
+    fig.savefig(f'figs/{title}/{title}_{pref}_spectra.png', dpi=600, bbox_inches='tight')
 
 def measure_redshift(spec, z_guess):
     print('\nMeasuring spectroscopic redshift...')
@@ -184,7 +185,7 @@ def plot_line_fits(spec_rest, line_fits, z, z_err, title, pref):
     fig.suptitle('\n'.join(title_lines), y=.95, bbox=dict(boxstyle='square,pad=0.5', fc='white', ec='black', lw=1))
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     pf.fix_plot(axes.flatten())
-    fig.savefig(f'figs/{title}_{pref}_lines.png', dpi=600, bbox_inches='tight')
+    fig.savefig(f'figs/{title}/{title}_{pref}_lines.png', dpi=600, bbox_inches='tight')
 
 def analyse_galaxy_spectrum(cube_path, ra, dec, radius, z_guess, title, pref):
     cube = load_cube(cube_path)
