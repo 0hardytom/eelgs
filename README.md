@@ -5,3 +5,17 @@ _Project Summary_: This project will use a sample of over 200 ESO Very Large Tel
 _Supervisor_: Prof Alastair Edge
 
 __This repository contains all my code and research for my MPhys Project, completed Michaelmas-Epiphany 2025-6 at Durham University__
+
+---
+
+## Repository Structure
+
+-   `cubes/`: Contains the FITS datacubes used for analysis.
+-   `latex/`: Holds LaTeX templates and style files for report writing.
+-   `notebooks/`: Contains Jupyter notebooks, Python scripts, and meeting notes for data analysis and exploration.
+    -   `week0/`, `week1/`, ...: Meeting notes and summaries organized by week.
+    -   `week2/`: Contains the primary analysis scripts (`IFU_tools.py`) and notebooks.
+-   `papers/`: A collection of relevant research papers and literature.
+-   `test/`: For housing test scripts.
+-   `literature_review.tex`: The main LaTeX file for the literature review.
+-   `references.bib`: The BibTeX file for managing citations.
