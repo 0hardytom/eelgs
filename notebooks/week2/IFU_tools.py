@@ -1,182 +1,122 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpdaf.obj import Cube
-from astropy.units import u
 from astropy.coordinates import SkyCoord
 import sys
 import plotfancy as pf
 from matplotlib.patches import Circle
 from astropy.visualization import ZScaleInterval
 
-# ==============================================================================
-# INPUTs: Define Target and Extraction Parameters
-# ==============================================================================
-
 CUBE_PATH = '../../cubes/macs0159m34_COMBINED_CUBE_MED_FINAL.fits'
 TITLE = 'MACS'
 RADIUS_ARCSEC = .6
-Z_GUESS = 0.249  # An initial guess for the redshift
+Z_GUESS = 0.249
 
-ra_hms = '01h59m04.03s'
-dec_dms = '-34d13m31.8s'
-coords = SkyCoord(ra_hms, dec_dms, frame='icrs')
+coords = SkyCoord('01h59m04.03s', '-34d13m31.8s', frame='icrs')
 RA_DEG = coords.ra.deg
 DEC_DEG = coords.dec.deg
 
-# ==============================================================================
-# MAIN ANALYSIS FUNCTIONS
-# ==============================================================================
-
-def generate_gaussian_profile(
-    gauss_params,
-    num_points: int = 500,
-    width_factor: float = 4.0
-) -> np.ndarray:
-    sigma = gauss_params.fwhm / (2 * np.sqrt(2 * np.log(2)))
-
-    x_min = gauss_params.lpeak - width_factor * gauss_params.fwhm / 2
-    x_max = gauss_params.lpeak + width_factor * gauss_params.fwhm / 2
+def generate_gaussian_profile(params, num_points=500, width_factor=4.0):
+    sigma = params.fwhm / (2 * np.sqrt(2 * np.log(2)))
+    x_min = params.lpeak - width_factor * params.fwhm / 2
+    x_max = params.lpeak + width_factor * params.fwhm / 2
     x = np.linspace(x_min, x_max, num_points)
-
-    y = gauss_params.cont + gauss_params.peak * np.exp(
-        -((x - gauss_params.lpeak) ** 2) / (2 * sigma ** 2)
-    )
+    y = params.cont + params.peak * np.exp(-((x - params.lpeak) ** 2) / (2 * sigma ** 2))
     return np.vstack((x, y))
 
-
-def analyze_galaxy_spectrum(cube_path, ra, dec, radius, z_guess, titlename, pref):
-    # 1. Load the Datacube
-    print(f'Loading datacube: {cube_path}...')
+def load_cube(path):
+    print(f'Loading datacube: {path}...')
     try:
-        cube = Cube(cube_path)
+        cube = Cube(path)
         print(f'Successfully loaded cube. Dimensions: {cube.shape}')
+        return cube
     except FileNotFoundError:
-        print(f'Error: Datacube not found at {cube_path}')
-        print('Please ensure the path is correct and you are running this script from the project\'s root directory.')
+        print(f'Error: Datacube not found at {path}')
         sys.exit(1)
 
-    # 2. Extract the 1D Spectrum
-    center = (dec, ra)  # (Dec, RA) order for MPDAF
+def extract_spectrum(cube, ra, dec, radius):
+    center = (dec, ra)
     print(f'\nExtracting spectrum at (RA, Dec) = ({ra:.6f}, {dec:.6f}) with a {radius}" radius aperture.')
     spec = cube.aperture(center, radius, is_sum=True)
     print('Extraction complete.')
+    return spec
 
-    # 3. Plot the Extracted Spectrum
-    fig1, ax1 = pf.create_plot(size=(8, 2))
-    ax1_cont = fig1.add_axes((1.02, 0, 1/4, 1))
-    spec.plot(ax=ax1, title=f'{titlename} at (RA={ra:.4f}, Dec={dec:.4f})', color='#ff004f')
-    ax1.set_xlabel(r'Wavelength, $\lambda$, [$\AA$]')
-    ax1.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
-    fig1.canvas.manager.set_window_title('Extracted Spectrum')
+def plot_spectrum_and_cutout(spec, cube, ra, dec, radius, title, pref):
+    fig, ax = pf.create_plot(size=(8, 2))
+    ax_cont = fig.add_axes((1.02, 0, 1/4, 1))
+    spec.plot(ax=ax, title=f'{title} at (RA={ra:.4f}, Dec={dec:.4f})', color='#ff004f')
+    ax.set_xlabel(r'Wavelength, $\lambda$, [$\AA$]')
+    ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
+    fig.canvas.manager.set_window_title('Extracted Spectrum')
 
-    # Create and plot a continuum image cutout centered on the object
-    print('Creating continuum image cutout...')
-    cont_wave_min, cont_wave_max = 7000, 7500  # Angstroms, in observed frame
-    subcube_cont = cube.select_lambda(cont_wave_min, cont_wave_max)
+    subcube_cont = cube.select_lambda(7000, 7500)
     im_cont = subcube_cont.mean(axis=0)
+    im_cutout = im_cont.subimage(center=(dec, ra), size=4.0)
 
-    # Create a cutout (sub-image) centered on the target coordinates
-    cutout_size_arcsec = 4.0  # The size of the square cutout in arcseconds
-    im_cutout = im_cont.subimage(center=(dec, ra), size=cutout_size_arcsec)
+    vmin, vmax = ZScaleInterval().get_limits(im_cutout.data)
+    im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False)
+    ax_cont.set_xticks([])
+    ax_cont.set_yticks([])
 
-    # Use ZScaleInterval to calculate vmin and vmax for contrast scaling on the cutout
-    interval = ZScaleInterval()
-    vmin, vmax = interval.get_limits(im_cutout.data)
-    
-    im_cutout.plot(ax=ax1_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False)
-    ax1_cont.set_xticks([])
-    ax1_cont.set_yticks([])
-    
-    # Convert world coordinates to pixel coordinates for the cutout to overlay the aperture circle
-    center_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]  # returns (row, col) ~ (y, x)
-    pix_step_arcsec = im_cutout.wcs.get_step()[0]
-    radius_pix = radius / pix_step_arcsec
+    center_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]
+    radius_pix = radius / im_cutout.wcs.get_step()[0]
+    aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), radius_pix, edgecolor='white', facecolor='none', lw=1)
+    ax_cont.add_patch(aperture_circle)
 
-    # Matplotlib's Circle needs (x, y) for the center, so we reverse the order from sky2pix.
-    aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), radius_pix,
-                             edgecolor='white', facecolor='none', lw=1)
-    ax1_cont.add_patch(aperture_circle)
+    pf.fix_plot([ax])
+    fig.savefig(f'figs/{title}_{pref}_spectra.png', dpi=600, bbox_inches='tight')
 
-    pf.fix_plot([ax1])
-    fig1.savefig(f'figs/{titlename}_{pref}_spectra.png', dpi=600, bbox_inches='tight')
-
-    # 4. Measure Spectroscopic Redshift from Emission Lines
+def measure_redshift(spec, z_guess):
     print('\nMeasuring spectroscopic redshift...')
-    
-    # Define emission lines for redshift measurement (rest-frame wavelengths in Angstroms)
-    lines_for_z = {
-        'Hbeta': 4861.33,
-        'OIII_5007': 5006.84,
-        'Halpha': 6562.80,
-    }
-    
-    measured_redshifts = []
-    for name, rest_wavelength in lines_for_z.items():
-        # Estimate observed wavelength with the initial guess
-        obs_wavelength_guess = rest_wavelength * (1 + z_guess)
-        
-        # Fit the line in the OBSERVED spectrum
+    lines_for_z = {'Hbeta': 4861.33, 'OIII_5007': 5006.84, 'Halpha': 6562.80}
+    redshifts = []
+    for name, rest_wave in lines_for_z.items():
+        obs_wave_guess = rest_wave * (1 + z_guess)
         try:
-            # Search in a window around the guessed wavelength
-            fit = spec.gauss_fit(lmin=(obs_wavelength_guess - 30), lmax=(obs_wavelength_guess + 30), plot=False)
-            
-            # Calculate redshift from the fitted peak
-            measured_lpeak = fit.lpeak
-            line_z = (measured_lpeak / rest_wavelength) - 1
-            measured_redshifts.append(line_z)
-            print(f'  - {name}: Found at {measured_lpeak:.2f} \AA, z = {line_z:.5f}')
-        except Exception as e:
-            print(f'  - {name}: Fit failed near {obs_wavelength_guess:.2f} \AA.')
+            fit = spec.gauss_fit(lmin=(obs_wave_guess - 30), lmax=(obs_wave_guess + 30), plot=False)
+            line_z = (fit.lpeak / rest_wave) - 1
+            redshifts.append(line_z)
+            print(f'  - {name}: Found at {fit.lpeak:.2f} \AA, z = {line_z:.5f}')
+        except Exception:
+            print(f'  - {name}: Fit failed near {obs_wave_guess:.2f} \AA.')
 
-    if not measured_redshifts:
-        print('\nError: Could not measure redshift from any emission lines. Using initial guess.')
-        z_measured = z_guess
-    else:
-        z_measured = np.mean(measured_redshifts)
-        z_std = np.std(measured_redshifts)
-        print(f'\nMeasured Redshift z = {z_measured:.5f} \xB1 {z_std:.5f}')
+    if not redshifts:
+        print('\nError: Could not measure redshift. Using initial guess.')
+        return z_guess, 0.0
+    
+    z_measured = np.mean(redshifts)
+    z_err = np.std(redshifts) / np.sqrt(len(redshifts)) if len(redshifts) > 1 else 0.0
+    print(f'\nMeasured Redshift z = {z_measured:.5f} \xB1 {z_err:.5f}')
+    return z_measured, z_err
 
-    # 5. De-redshift the spectrum and measure line properties
-    # De-redshift the spectrum to the rest frame using the MEASURED redshift
+def deredshift_spectrum(spec, z):
     spec_rest = spec.copy()
-    spec_rest.wave.set_crval(spec_rest.wave.get_crval() / (1 + z_measured))
-    spec_rest.wave.set_step(spec_rest.wave.get_step() / (1 + z_measured))
+    spec_rest.wave.set_crval(spec_rest.wave.get_crval() / (1 + z))
+    spec_rest.wave.set_step(spec_rest.wave.get_step() / (1 + z))
+    return spec_rest
 
-    # Define emission lines for analysis (rest-frame wavelengths in Angstroms)
-    lines = {
-        'Hbeta': 4861.33,
-        'OIII_5007': 5006.84,
-        'Halpha': 6562.80,
-        'NII_6583': 6583.45
-    }
-
-    titles = {
-        'Hbeta': r'H$\beta$',
-        'OIII_5007': r'O$_{\mathrm{III-}5007}$',
-        'Halpha': r'H$\alpha$',
-        'NII_6583': r'N$_{\mathrm{II-}6583}$'   
-    }
-
+def fit_emission_lines(spec_rest):
+    lines = {'Hbeta': 4861.33, 'OIII_5007': 5006.84, 'Halpha': 6562.80, 'NII_6583': 6583.45}
     line_fits = {}
-    # Fit each line with a Gaussian in the rest-frame spectrum
-    for name, wavelength in lines.items():
+    for name, wave in lines.items():
         try:
-            fit = spec_rest.gauss_fit(lmin=(wavelength - 15), lmax=(wavelength + 15), plot=False)
-            line_fits[name] = fit
-        except:
+            line_fits[name] = spec_rest.gauss_fit(lmin=(wave - 15), lmax=(wave + 15), plot=False)
+        except Exception:
             line_fits[name] = None
+    return line_fits
 
-    # Plot the fits for visual inspection
-    fig2, axes = plt.subplots(2, 2, figsize=(8, 7.5))
-    fig2.canvas.manager.set_window_title('Emission Line Fits')
+def plot_line_fits(spec_rest, line_fits, z, z_err, title, pref):
+    titles = {'Hbeta': r'H$\beta$', 'OIII_5007': r'O$_{\mathrm{III-}5007}$', 'Halpha': r'H$\alpha$', 'NII_6583': r'N$_{\mathrm{II-}6583}$'}
+    fig, axes = plt.subplots(2, 2, figsize=(8, 7.5))
+    fig.canvas.manager.set_window_title('Emission Line Fits')
 
-    for ax, name in zip(axes.ravel(), lines.keys()):
+    for ax, name in zip(axes.ravel(), titles.keys()):
         fit = line_fits.get(name)
-        if fit is not None:
-            gprofile = generate_gaussian_profile(fit, 500, 100)
-            ax.plot(gprofile[0], gprofile[1], color='k', lw=1.4)
+        if fit:
+            profile = generate_gaussian_profile(fit, 500, 100)
+            ax.plot(profile[0], profile[1], color='k', lw=1.4)
             spec_rest.plot(ax=ax, color='#ff004f')
-            ax.set_xlim([np.min(gprofile[0]), np.max(gprofile[0])])
+            ax.set_xlim([np.min(profile[0]), np.max(profile[0])])
             ax.set_title(titles[name])
             ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
             ax.set_xlabel(r'Rest Frame $\lambda$, [$\AA$]')
@@ -184,48 +124,51 @@ def analyze_galaxy_spectrum(cube_path, ra, dec, radius, z_guess, titlename, pref
             ax.set_title(f'{titles[name]} (Fit Failed)')
             ax.text(0.5, 0.5, 'No data', ha='center', va='center', transform=ax.transAxes)
     
-    # Calculate OIII/Hbeta ratio and NII/Halpha ratio and add to plot
+    title_lines = [f'Spectroscopic Redshift z = {z:.5f} \u00B1 {z_err:.5f}' if z_err > 0 else f'Spectroscopic Redshift z = {z:.5f}']
+    
     oiii_fit = line_fits.get('OIII_5007')
     hbeta_fit = line_fits.get('Hbeta')
-    nii_fit = line_fits.get('NII_6583')
-    halpha_fit = line_fits.get('Halpha')
-
-    title_lines = [f'Spectroscopic Redshift z = {z_measured:.5f}']
-    
     if oiii_fit and hbeta_fit and hbeta_fit.flux > 0:
-        oiii_hbeta_ratio = oiii_fit.flux / hbeta_fit.flux
-        oiii_hbeta_ratio_error = oiii_hbeta_ratio * np.sqrt((oiii_fit.err_flux / oiii_fit.flux)**2 + (hbeta_fit.err_flux / hbeta_fit.flux)**2)
-        log_oiii_hbeta_ratio = np.log10(oiii_hbeta_ratio)
-        log_oiii_hbeta_ratio_error = oiii_hbeta_ratio_error / (oiii_hbeta_ratio * np.log(10))
-        print(f'[OIII]/H\u03b2 = {oiii_hbeta_ratio:.3f} +/- {oiii_hbeta_ratio_error:.3f}')
-        print(f'log([OIII]/H\u03b2) = {log_oiii_hbeta_ratio:.3f} +/- {log_oiii_hbeta_ratio_error:.3f}\n')
-        title_lines.append(fr'$\log([\mathrm{{OIII}}] / \mathrm{{H}}\beta) = {log_oiii_hbeta_ratio:.2f} \pm {log_oiii_hbeta_ratio_error:.2f}$')
+        ratio = oiii_fit.flux / hbeta_fit.flux
+        err = ratio * np.sqrt((oiii_fit.err_flux / oiii_fit.flux)**2 + (hbeta_fit.err_flux / hbeta_fit.flux)**2)
+        log_ratio = np.log10(ratio)
+        log_err = err / (ratio * np.log(10))
+        print(f'[OIII]/H\u03b2 = {ratio:.3f} +/- {err:.3f}')
+        print(f'log([OIII]/H\u03b2) = {log_ratio:.3f} +/- {log_err:.3f}\n')
+        title_lines.append(fr'$\log([\mathrm{{OIII}}] / \mathrm{{H}}\beta) = {log_ratio:.2f} \pm {log_err:.2f}$')
     else:
         print('[OIII]/Hbeta could not be calculated.\n')
         title_lines.append(r'$\log([\mathrm{OIII}] / \mathrm{H}\beta)$ not calculated')
 
+    nii_fit = line_fits.get('NII_6583')
+    halpha_fit = line_fits.get('Halpha')
     if nii_fit and halpha_fit and halpha_fit.flux > 0:
-        nii_halpha_ratio = nii_fit.flux / halpha_fit.flux
-        nii_halpha_ratio_error = nii_halpha_ratio * np.sqrt((nii_fit.err_flux / nii_fit.flux)**2 + (halpha_fit.err_flux / halpha_fit.flux)**2)
-        log_nii_halpha_ratio = np.log10(nii_halpha_ratio)
-        log_nii_halpha_ratio_error = nii_halpha_ratio_error / (nii_halpha_ratio * np.log(10))
-        print(f'[NII]/H\u03b1 = {nii_halpha_ratio:.3f} +/- {nii_halpha_ratio_error:.3f}')
-        print(f'log([NII]/H\u03b1) = {log_nii_halpha_ratio:.3f} +/- {log_nii_halpha_ratio_error:.3f}\n')
-        title_lines.append(fr'$\log([\mathrm{{NII}}] / \mathrm{{H}}\alpha) = {log_nii_halpha_ratio:.2f} \pm {log_nii_halpha_ratio_error:.2f}$')
+        ratio = nii_fit.flux / halpha_fit.flux
+        err = ratio * np.sqrt((nii_fit.err_flux / nii_fit.flux)**2 + (halpha_fit.err_flux / halpha_fit.flux)**2)
+        log_ratio = np.log10(ratio)
+        log_err = err / (ratio * np.log(10))
+        print(f'[NII]/H\u03b1 = {ratio:.3f} +/- {err:.3f}')
+        print(f'log([NII]/H\u03b1) = {log_ratio:.3f} +/- {log_err:.3f}\n')
+        title_lines.append(fr'$\log([\mathrm{{NII}}] / \mathrm{{H}}\alpha) = {log_ratio:.2f} \pm {log_err:.2f}$')
     else:
         print('[NII]/Halpha could not be calculated.\n')
         title_lines.append(r'$\log([\mathrm{NII}] / \mathrm{H}\alpha)$ not calculated')
 
-    fig2.suptitle('\n'.join(title_lines), y=1.0)
+    fig.suptitle('\n'.join(title_lines), y=1.0)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     pf.fix_plot(axes.flatten())
-    fig2.savefig(f'figs/{titlename}_{pref}_lines.png', dpi=600, bbox_inches='tight')
+    fig.savefig(f'figs/{title}_{pref}_lines.png', dpi=600, bbox_inches='tight')
 
+def analyze_galaxy_spectrum(cube_path, ra, dec, radius, z_guess, title, pref):
+    cube = load_cube(cube_path)
+    spec = extract_spectrum(cube, ra, dec, radius)
+    plot_spectrum_and_cutout(spec, cube, ra, dec, radius, title, pref)
+    z, z_err = measure_redshift(spec, z_guess)
+    spec_rest = deredshift_spectrum(spec, z)
+    line_fits = fit_emission_lines(spec_rest)
+    plot_line_fits(spec_rest, line_fits, z, z_err, title, pref)
     return spec, line_fits
 
-# ==============================================================================
-# EXECUTION
-# ==============================================================================
 if __name__ == '__main__':
     analyze_galaxy_spectrum(
         cube_path=CUBE_PATH,
@@ -233,7 +176,7 @@ if __name__ == '__main__':
         dec=DEC_DEG,
         radius=RADIUS_ARCSEC,
         z_guess=Z_GUESS,
-        titlename=TITLE,
-        pref='MACS0159' # A prefix for output filenames
+        title=TITLE,
+        pref='MACS0159'
     )
     plt.show()
