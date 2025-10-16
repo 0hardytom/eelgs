@@ -22,6 +22,7 @@ wheels/
 MANIFEST
 cubes/
 phot/
+test.py
 
 # PyTorch
 *.pth
