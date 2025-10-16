@@ -21,7 +21,7 @@ wheels/
 *.egg
 MANIFEST
 cubes/
-
+phot/
 
 # PyTorch
 *.pth
