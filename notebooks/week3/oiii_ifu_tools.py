@@ -19,6 +19,7 @@ class museCube:
     def __init__(self, path:str):
         ### attributes ###
         self.path = path
+        self.title = self._get_title()
         self.spectra = {}
         self.rest_spectra = {}
         ### initialisers ###
@@ -27,6 +28,23 @@ class museCube:
         self.init_table()
 
     ### INITIALISERS ###
+    def _dirmanagement(self,id):
+        if not os.path.isdir(f'figs/{self.title}/{id}'):
+            if not os.path.isdir(f'figs/{self.title}'):
+                if not os.path.isdir('figs'):
+                    os.mkdir(f'figs')
+                os.mkdir(f'figs/{self.title}')
+            os.mkdir(f'figs/{self.title}/{id}')
+            os.mkdir(f'figs/{self.title}/{id}/lines')
+        return True
+
+    def _get_title(self):
+        pattern = r'cubes/([^_]+)_'
+        match = re.search(pattern, self.path)
+        if match:
+            return match.group(1)
+        else:
+            return 'BLANK'
 
     def init_cube(self, PATH):
         print(f'Loading datacube: {PATH}...')
@@ -54,7 +72,7 @@ class museCube:
         'hdelta':   4101.73,
 
         # --- Key Diagnostic Lines ---
-        'oiii4363': 4363.21,  # Auroral line for Te
+        'oiii4363': 4363.21,
         'neiii':    3868.75,
 
         # --- Low-Ionization Lines ---
@@ -66,6 +84,33 @@ class museCube:
         # --- Helium Lines ---
         'heii4686': 4685.68,
         'hei5876':  5875.62,
+        }
+        self.lambda_keys = {
+        # --- Primary [OIII] and [OII] ---
+        'oiii5007': r'[OIII] $\lambda$5007',
+        'oiii4959': r'[OIII] $\lambda$4959',
+        'oii3726':  r'[OII] $\lambda$3726',
+        'oii3729':  r'[OII] $\lambda$3729',
+
+        # --- Hydrogen Balmer Series ---
+        'halpha':   r'H$\alpha$',
+        'hbeta':    r'H$\beta$',
+        'hgamma':   r'H$\gamma$',
+        'hdelta':   r'H$\delta$',
+
+        # --- Key Diagnostic Lines ---
+        'oiii4363': r'[OIII] $\lambda$4363', 
+        'neiii':    r'[NeIII] $\lambda$3869',
+
+        # --- Low-Ionization Lines ---
+        'nii6583':  r'[NII] $\lambda$6583',
+        'nii6548':  r'[NII] $\lambda$6548',
+        'sii6716':  r'[SII] $\lambda$6716',
+        'sii6731':  r'[SII] $\lambda$6731',
+
+        # --- Helium Lines (not forbidden) ---
+        'heii4686': r'HeII $\lambda$4686',
+        'hei5876':  r'HeI $\lambda$5876',
         }
         return True
     
@@ -144,6 +189,50 @@ class museCube:
     
     def makeid(self, cds):
         return str(cds.ra).replace('.','pt') + str(cds.dec).replace('.','pt')
+    
+
+    ### PLOTTING FUNCTIONS ###
+    def plot_spectrum_and_cutout(self,spec, ra, dec, id):
+        title = self.title
+        fig, ax = pf.create_plot(size=(8, 2))
+        ax_cont = fig.add_axes((1.02, 0, 1/4, 1))
+        spec.plot(ax=ax, title=fr'{title} at (RA={ra:.4f}, Dec={dec:.4f})$^\circ$', color='#ff004f')
+        ax.set_xlabel(r'Wavelength, $\lambda$, [$\AA$]')
+        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
+
+        subcube_cont = self.cube.select_lambda(7000, 7500)
+        im_cont = subcube_cont.mean(axis=0)
+        im_cutout = im_cont.subimage(center=(dec, ra), size=4.0)
+
+        vmin, vmax = ZScaleInterval().get_limits(im_cutout.data)
+        im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False, cmap='magma')
+        ax_cont.set_xticks([])
+        ax_cont.set_yticks([])
+
+        center_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]
+        aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), 3, edgecolor='white', facecolor='none', lw=2, zorder=10)
+        ax_cont.add_patch(aperture_circle)
+
+        pf.fix_plot([ax])
+        fig.savefig(f'figs/{title}/{id}/spectrum.png', dpi=600, bbox_inches='tight')
+
+    def plot_extracted_line(self, rest_spec, fit_params, target_str, id):
+        profile = self.generate_gaussian_profile(fit_params, 500, 100)
+
+        fig, ax = pf.create_plot(size=(4,2))
+
+        ax.set_xlabel(r'O$_{III}$-Calibrated Rest-$\lambda$, [$\AA$] }')
+        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
+        ax.set_title('Line Fit for'+self.lambda_keys[target_str])
+
+        ax.set_xlim([np.min(profile[0]), np.max(profile[0])])
+        
+        rest_spec.plot(ax=ax, color='#ff004f')
+        ax.plot(profile[0], profile[1], color='k', lw=1.4)
+
+        pf.fix_plot([ax])
+        fig.savefig(f'figs/{self.title}/{id}/spectrum_{target_str}.png', dpi=600, bbox_inches='tight')
+
 
     ### EXTRACTION METHODS
 
@@ -178,10 +267,11 @@ class museCube:
                 line_fit = fit_mock
         return line_fit
         
-    def pick_target(self, coords, z_guess, rad): # coords has to be an astropy skycoord obj
+    def pick_target(self, coords, z_guess, rad, plot=True): # coords has to be an astropy skycoord obj
         obj_row = []
         id = self.makeid(coords)
         obj_row.append(id)
+        self._dirmanagement(id=id)
 
         radec = (coords.ra.deg, coords.dec.deg)
         obj_row.extend(radec)
@@ -196,8 +286,14 @@ class museCube:
         self.rest_spectra[id] = rest_spectrum
 
         self.ex_table.add_row((obj_row+(len(self.column_names)-4)*[np.nan]))
-        
-        for linename, wavelength in self.rest_lambdas.items():
+
+        # plot main spectrum and continuum #
+        if plot:
+            self.plot_spectrum_and_cutout(obj_spectrum, radec[0], radec[1],id)
+
+        # now deal with individual lines #
+
+        for linename, _ in self.rest_lambdas.items():
             locd_row = self.ex_table.loc[id]
             linefit = self.fit_line(rest_spectrum, linename)
 
@@ -211,8 +307,10 @@ class museCube:
             # locd_row[linename+'_ew_err'] = eqwidth*np.sqrt(
             #     (linefit.err_flux/linefit.flux)**2+
             #     (linefit.err_cont/linefit.cont)**2)
-            locd_row[linename+'_ew_err'
-            ''] = (linefit.err_flux/linefit.flux)*eqwidth if linefit.flux!=0 else np.nan
+            locd_row[linename+'_ew_err'] = (linefit.err_flux/linefit.flux)*eqwidth if linefit.flux!=0 else np.nan
+
+            if plot and linefit.flux!=0:
+                self.plot_extracted_line(rest_spectrum, linefit, linename, id)
 
     def process_multiple_ds9(self, csv_path):
         coord_table = Table(ascii.read(csv_path))
@@ -223,6 +321,10 @@ class museCube:
             csv_coords = all_coords[i]
             z_estimate = coord_table['z_est'][i]
             self.pick_target(csv_coords, z_estimate, 0.7)
+            
+
+        
+
             
 
         
