@@ -55,4 +55,4 @@ The main focus is to systematize the analysis of emission line galaxies in the M
 
 ## Tools & Resources
 
--   **LensTool:** For gravitational lensing analysis and modeling, Dougal is the recommended contact.
+-   **LensTool:** For gravitational lensing analysis and modeling, David is the recommended contact.
