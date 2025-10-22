@@ -215,6 +215,7 @@ class museCube:
 
         pf.fix_plot([ax])
         fig.savefig(f'figs/{title}/{id}/spectrum.png', dpi=600, bbox_inches='tight')
+        plt.close(fig)
 
     def plot_extracted_line(self, rest_spec, fit_params, target_str, id):
         profile = self.generate_gaussian_profile(fit_params, 500, 100)
@@ -224,14 +225,15 @@ class museCube:
         ax.set_xlabel(r'O$_{III}$-Calibrated Rest-$\lambda$, [$\AA$] }')
         ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
         ax.set_title('Line Fit for'+self.lambda_keys[target_str])
-
-        ax.set_xlim([np.min(profile[0]), np.max(profile[0])])
         
         rest_spec.plot(ax=ax, color='#ff004f')
         ax.plot(profile[0], profile[1], color='k', lw=1.4)
 
+        ax.set_xlim([np.min(profile[0]), np.max(profile[0])])
+
         pf.fix_plot([ax])
-        fig.savefig(f'figs/{self.title}/{id}/spectrum_{target_str}.png', dpi=600, bbox_inches='tight')
+        fig.savefig(f'figs/{self.title}/{id}/lines/spectrum_{target_str}.png', dpi=600, bbox_inches='tight')
+        plt.close(fig)
 
 
     ### EXTRACTION METHODS
@@ -292,10 +294,11 @@ class museCube:
             self.plot_spectrum_and_cutout(obj_spectrum, radec[0], radec[1],id)
 
         # now deal with individual lines #
-
+        linefits = []
         for linename, _ in self.rest_lambdas.items():
             locd_row = self.ex_table.loc[id]
             linefit = self.fit_line(rest_spectrum, linename)
+            linefits.append(linefit)
 
             locd_row[linename+'_flux'] = linefit.flux
             locd_row[linename+'_flux_err'] = linefit.err_flux
