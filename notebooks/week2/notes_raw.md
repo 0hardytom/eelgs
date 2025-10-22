@@ -25,7 +25,7 @@
 
 -   **HST/JWST: get some old colours because strong emission lines, giving much brighter middle.**
 
--   **Cau's spikes in photometric redshift.**
+-   **Cause spikes in photometric redshift.**
 
 ---
 
