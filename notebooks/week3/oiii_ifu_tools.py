@@ -100,7 +100,7 @@ class museCube:
         'hdelta':   r'H$\delta$',
 
         # --- Key Diagnostic Lines ---
-        'oiii4363': r'[OIII] $\lambda$4363', 
+        'oiii4363': r'[OIII] $\lambda$4363',  # Auroral line
         'neiii':    r'[NeIII] $\lambda$3869',
 
         # --- Low-Ionization Lines ---
@@ -117,17 +117,17 @@ class museCube:
     
     def init_table(self, cnames=None):
         self.column_names = ['object_id', 'ra', 'dec','z'] if cnames==None else cnames
-        meta = ['flux','flux_err', 'ew','ew_err', 'centroid', 'fwhm']
+        self.top = ['object_id', 'ra', 'dec','z'] 
+        self.meta = ['flux','flux_err', 'ew','ew_err', 'centroid', 'fwhm']
         for key, _ in self.rest_lambdas.items():
-            for m in meta:
+            for m in self.meta:
                 self.column_names.append(key+'_'+m)
-        
-        # Add new columns for flux ratios relative to oiii5007
+
         for key, _ in self.rest_lambdas.items():
             if key == 'oiii5007':
                 continue
-            self.column_names.append(key + '_oiii5007_ratio')
-            self.column_names.append(key + '_oiii5007_ratio_err')
+            self.column_names.append('oiii5007_'+key+'_ratio')
+            self.column_names.append('oiii5007_'+key+'_ratio_err')
 
         self.ex_table = Table(names=self.column_names,dtype=([str]+(len(self.column_names)-1)*[np.float64]))
         self.ex_table.add_index('object_id')
@@ -199,13 +199,15 @@ class museCube:
     def makeid(self, cds):
         return str(cds.ra).replace('.','pt') + str(cds.dec).replace('.','pt')
     
-
+    def write_table(self):
+        self.ex_table.write(f'{self.title}_data.csv', overwrite=True)
+    
     ### PLOTTING FUNCTIONS ###
     def plot_spectrum_and_cutout(self,spec, ra, dec, id):
         title = self.title
         fig, ax = pf.create_plot(size=(8, 2))
         ax_cont = fig.add_axes((1.02, 0, 1/4, 1))
-        spec.plot(ax=ax, title=fr'{title} at (RA={ra:.4f}, Dec={dec:.4f})$^\circ$', color='#ff004f')
+        spec.plot(ax=ax, title=fr'{title} at (RA={ra:.4f}, Dec={dec:.4f})$^\circ', color='#ff004f')
         ax.set_xlabel(r'Wavelength, $\lambda$, [$\AA$]')
         ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
 
@@ -231,8 +233,8 @@ class museCube:
 
         fig, ax = pf.create_plot(size=(4,2))
 
-        ax.set_xlabel(r'O$_{III}$-Calibrated Rest-$\\lambda$, [$\\AA$] }')
-        ax.set_ylabel(r'Flux [$\\times10^{-20}\\mathrm{erg}/\\AA\\,s\\,\\mathrm{cm}^{-2}$]')
+        ax.set_xlabel(r'O$_{III}$-Calibrated Rest-$\lambda$, [$\AA$] }')
+        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
         ax.set_title('Line Fit for'+self.lambda_keys[target_str])
         
         rest_spec.plot(ax=ax, color='#ff004f')
@@ -244,9 +246,10 @@ class museCube:
         fig.savefig(f'figs/{self.title}/{id}/lines/spectrum_{target_str}.png', dpi=600, bbox_inches='tight')
         plt.close(fig)
 
-    def plot_all_lines_on_spectrum(self, rest_spec, linefits, id, ra, dec):
+    def plot_all_lines_on_spectrum(self, rest_spec, linefits, id, ra=None, dec=None):
         fig, ax = pf.create_plot(size=(8, 2))
-        ax_cont = fig.add_axes((1.02, 0, 1/4, 1))
+        if ra is not None and dec is not None:
+            ax_cont = fig.add_axes((1.02, 0, 1/4, 1))
 
         rest_spec.plot(ax=ax, color='#ff004f', label='Spectrum')
 
@@ -277,18 +280,19 @@ class museCube:
             ax.set_ylim(bottom=-50)
 
         # Continuum plot part
-        subcube_cont = self.cube.select_lambda(7000, 7500)
-        im_cont = subcube_cont.mean(axis=0)
-        im_cutout = im_cont.subimage(center=(dec, ra), size=4.0)
+        if ra is not None and dec is not None:
+            subcube_cont = self.cube.select_lambda(7000, 7500)
+            im_cont = subcube_cont.mean(axis=0)
+            im_cutout = im_cont.subimage(center=(dec, ra), size=4.0)
 
-        vmin, vmax = ZScaleInterval().get_limits(im_cutout.data)
-        im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False, cmap='magma')
-        ax_cont.set_xticks([])
-        ax_cont.set_yticks([])
+            vmin, vmax = ZScaleInterval().get_limits(im_cutout.data)
+            im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False, cmap='magma')
+            ax_cont.set_xticks([])
+            ax_cont.set_yticks([])
 
-        center_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]
-        aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), 3, edgecolor='white', facecolor='none', lw=2, zorder=10)
-        ax_cont.add_patch(aperture_circle)
+            center_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]
+            aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), 3, edgecolor='white', facecolor='none', lw=2, zorder=10)
+            ax_cont.add_patch(aperture_circle)
 
         pf.fix_plot([ax])
         fig.savefig(f'figs/{self.title}/{id}/spectrum_all_lines.png', dpi=600, bbox_inches='tight')
@@ -347,7 +351,7 @@ class museCube:
         rest_spectrum = self.deredshift_spectrum(obj_spectrum, obj_z)
         self.rest_spectra[id] = rest_spectrum
 
-        self.ex_table.add_row((obj_row+(len(self.column_names)-4)*[np.nan]))
+        self.ex_table.add_row((obj_row+(len(self.column_names)-len(self.top))*[np.nan]))
 
         # plot main spectrum and continuum #
         if plot:
@@ -365,20 +369,23 @@ class museCube:
             locd_row[linename+'_fwhm'] = linefit.fwhm
             locd_row[linename+'_centroid'] = linefit.lpeak
 
-            eqwidth = linefit.flux/linefit.cont
-            locd_row[linename+'_ew'] = eqwidth
-            # locd_row[linename+'_ew_err'] = eqwidth*np.sqrt(
-            #     (linefit.err_flux/linefit.flux)**2+
-            #     (linefit.err_cont/linefit.cont)**2)
-            locd_row[linename+'_ew_err'] = (linefit.err_flux/linefit.flux)*eqwidth if linefit.flux!=0 else np.nan
+            if linefit.cont != 0:
+                eqwidth = linefit.flux/linefit.cont
+                locd_row[linename+'_ew'] = eqwidth
+                # locd_row[linename+'_ew_err'] = eqwidth*np.sqrt(
+                #     (linefit.err_flux/linefit.flux)**2+
+                #     (linefit.err_cont/linefit.cont)**2)
+                locd_row[linename+'_ew_err'] = (linefit.err_flux/linefit.flux)*eqwidth if linefit.flux!=0 else np.nan
+            else:
+                locd_row[linename+'_ew'] = np.nan
+                locd_row[linename+'_ew_err'] = np.nan
 
             if plot and linefit.flux!=0:
                 self.plot_extracted_line(rest_spectrum, linefit, linename, id)
         
         if plot:
-            self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id)
+            self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id, radec[0], radec[1])
 
-        # Calculate and store flux ratios relative to oiii5007
         locd_row = self.ex_table.loc[id]
         oiii_flux = locd_row['oiii5007_flux']
         oiii_flux_err = locd_row['oiii5007_flux_err']
@@ -392,15 +399,99 @@ class museCube:
                 line_flux_err = locd_row[linename + '_flux_err']
 
                 if line_flux != 0 and not np.isnan(line_flux):
-                    ratio = line_flux / oiii_flux
+                    # ratio = line_flux / oiii_flux
+                    ratio = oiii_flux/line_flux
                     # Propagate errors
                     err_ratio = ratio * np.sqrt((line_flux_err / line_flux)**2 + (oiii_flux_err / oiii_flux)**2)
                     
-                    locd_row[linename + '_oiii5007_ratio'] = ratio
-                    locd_row[linename + '_oiii5007_ratio_err'] = err_ratio
+                    locd_row['oiii5007_'+linename+'_ratio'] = ratio
+                    locd_row['oiii5007_'+linename+'_ratio_err'] = err_ratio
                 else:
-                    locd_row[linename + '_oiii5007_ratio'] = np.nan
-                    locd_row[linename + '_oiii5007_ratio_err'] = np.nan
+                    locd_row['oiii5007_'+linename+'_ratio'] = np.nan
+                    locd_row['oiii5007_'+linename+'_ratio_err'] = np.nan
+
+            
+    def stack_and_fit_spectra(self, plot=True):
+        if not self.rest_spectra:
+            print("No rest-frame spectra to stack.")
+            return
+
+        # Stack rest-frame spectra
+        spectra_to_stack = list(self.rest_spectra.values())
+        
+        stacked_spectrum = spectra_to_stack[0].copy()
+        for spec in spectra_to_stack[1:]:
+            stacked_spectrum.data += spec.data # simple add, assumes same grid. For robustness, resampling would be better
+        
+        # ID for stacked spectrum
+        id = 'STACK'
+        self._dirmanagement(id=id)
+
+        # The stacked spectrum is already in the rest frame
+        rest_spectrum = stacked_spectrum
+        
+        # Calculate mean redshift for the table
+        individual_zs = [self.ex_table.loc[spec_id]['z'] for spec_id in self.rest_spectra.keys() if spec_id != 'STACK']
+        mean_z = np.mean(individual_zs) if individual_zs else np.nan
+
+        # Add row to table
+        if id in self.ex_table['object_id']:
+            idx = np.where(self.ex_table['object_id'] == id)[0][0]
+            self.ex_table.remove_row(idx)
+        
+        obj_row = [id, np.nan, np.nan, mean_z]
+        self.ex_table.add_row((obj_row + (len(self.column_names) - len(self.top)) * [np.nan]))
+
+        # Fit individual lines
+        linefits = []
+        for linename, _ in self.rest_lambdas.items():
+            locd_row = self.ex_table.loc[id]
+            linefit = self.fit_line(rest_spectrum, linename)
+            linefits.append(linefit)
+
+            locd_row[linename + '_flux'] = linefit.flux
+            locd_row[linename + '_flux_err'] = linefit.err_flux
+            locd_row[linename + '_fwhm'] = linefit.fwhm
+            locd_row[linename + '_centroid'] = linefit.lpeak
+
+            if linefit.cont != 0:
+                eqwidth = linefit.flux / linefit.cont
+                locd_row[linename + '_ew'] = eqwidth
+                locd_row[linename + '_ew_err'] = (linefit.err_flux / linefit.flux) * eqwidth if linefit.flux != 0 else np.nan
+            else:
+                locd_row[linename + '_ew'] = np.nan
+                locd_row[linename + '_ew_err'] = np.nan
+
+            if plot and linefit.flux != 0:
+                self.plot_extracted_line(rest_spectrum, linefit, linename, id)
+
+        if plot:
+            self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id) # ra, dec are None
+
+        # Calculate ratios
+        locd_row = self.ex_table.loc[id]
+        oiii_flux = locd_row['oiii5007_flux']
+        oiii_flux_err = locd_row['oiii5007_flux_err']
+
+        if oiii_flux != 0 and not np.isnan(oiii_flux):
+            for linename, _ in self.rest_lambdas.items():
+                if linename == 'oiii5007':
+                    continue
+
+                line_flux = locd_row[linename + '_flux']
+                line_flux_err = locd_row[linename + '_flux_err']
+
+                if line_flux != 0 and not np.isnan(line_flux):
+                    ratio = oiii_flux / line_flux
+                    err_ratio = ratio * np.sqrt((line_flux_err / line_flux)**2 + (oiii_flux_err / oiii_flux)**2)
+                    
+                    locd_row['oiii5007_' + linename + '_ratio'] = ratio
+                    locd_row['oiii5007_' + linename + '_ratio_err'] = err_ratio
+                else:
+                    locd_row['oiii5007_' + linename + '_ratio'] = np.nan
+                    locd_row['oiii5007_' + linename + '_ratio_err'] = np.nan
+        return True
+            
 
     def process_multiple_ds9(self, csv_path):
         coord_table = Table(ascii.read(csv_path))
@@ -411,9 +502,8 @@ class museCube:
             csv_coords = all_coords[i]
             z_estimate = coord_table['z_est'][i]
             self.pick_target(csv_coords, z_estimate, 0.7)
-            
-
-        
+        self.stack_and_fit_spectra(plot=True)
+        self.write_table()
 
             
 
