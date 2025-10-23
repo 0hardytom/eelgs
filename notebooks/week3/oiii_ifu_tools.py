@@ -116,8 +116,8 @@ class museCube:
         return True
     
     def init_table(self, cnames=None):
-        self.column_names = ['object_id', 'ra', 'dec','z'] if cnames==None else cnames
-        self.top = ['object_id', 'ra', 'dec','z'] 
+        self.column_names = ['object_id', 'ra', 'dec','z','j19_metallicity'] if cnames==None else cnames
+        self.top = ['object_id', 'ra', 'dec','z', 'j19_metallicity'] 
         self.meta = ['flux','flux_err', 'ew','ew_err', 'centroid', 'fwhm']
         for key, _ in self.rest_lambdas.items():
             for m in self.meta:
@@ -351,7 +351,7 @@ class museCube:
         rest_spectrum = self.deredshift_spectrum(obj_spectrum, obj_z)
         self.rest_spectra[id] = rest_spectrum
 
-        self.ex_table.add_row((obj_row+(len(self.column_names)-len(self.top))*[np.nan]))
+        self.ex_table.add_row((obj_row+(len(self.column_names)-len(self.top)+1)*[np.nan]))
 
         # plot main spectrum and continuum #
         if plot:
@@ -409,6 +409,13 @@ class museCube:
                 else:
                     locd_row['oiii5007_'+linename+'_ratio'] = np.nan
                     locd_row['oiii5007_'+linename+'_ratio_err'] = np.nan
+        
+        pxy = self.ex_table.loc[id]
+        pxy['j19_metallicity'] = cjm19(pxy['oiii5007_flux'],
+                                       pxy['oiii4959_flux'],
+                                       pxy['oii3726_flux'],
+                                       pxy['oii3729_flux'],
+                                       pxy['hbeta_flux'])
 
             
     def stack_and_fit_spectra(self, plot=True):
@@ -440,7 +447,7 @@ class museCube:
             self.ex_table.remove_row(idx)
         
         obj_row = [id, np.nan, np.nan, mean_z]
-        self.ex_table.add_row((obj_row + (len(self.column_names) - len(self.top)) * [np.nan]))
+        self.ex_table.add_row((obj_row + (len(self.column_names) - len(self.top)+1) * [np.nan]))
 
         # Fit individual lines
         linefits = []
@@ -490,10 +497,27 @@ class museCube:
                 else:
                     locd_row['oiii5007_' + linename + '_ratio'] = np.nan
                     locd_row['oiii5007_' + linename + '_ratio_err'] = np.nan
+
+        pxy = self.ex_table.loc[id]
+        pxy['j19_metallicity'] = cjm19(pxy['oiii5007_flux'],
+                                       pxy['oiii4959_flux'],
+                                       pxy['oii3726_flux'],
+                                       pxy['oii3729_flux'],
+                                       pxy['hbeta_flux'])
         return True
             
 
     def process_multiple_ds9(self, csv_path):
+        coord_table = Table(ascii.read(csv_path))
+        all_coords = SkyCoord(coord_table['ra'] * u.deg,
+                              coord_table['dec'] * u.deg,
+                              frame='icrs')
+        for i in range(len(all_coords)):
+            csv_coords = all_coords[i]
+            z_estimate = coord_table['z_est'][i]
+            self.pick_target(csv_coords, z_estimate, 0.7)
+        self.stack_and_fit_spectra(plot=True)
+        self.write_table()
         coord_table = Table(ascii.read(csv_path))
         all_coords = SkyCoord(coord_table['ra'] * u.deg,
                               coord_table['dec'] * u.deg,
