@@ -222,8 +222,8 @@ class museCube:
 
         fig, ax = pf.create_plot(size=(4,2))
 
-        ax.set_xlabel(r'O$_{III}$-Calibrated Rest-$\lambda$, [$\AA$] }')
-        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
+        ax.set_xlabel(r'O$_{III}$-Calibrated Rest-$\\lambda$, [$\\AA$] }')
+        ax.set_ylabel(r'Flux [$\\times10^{-20}\\mathrm{erg}/\\AA\\,s\\,\\mathrm{cm}^{-2}$]')
         ax.set_title('Line Fit for'+self.lambda_keys[target_str])
         
         rest_spec.plot(ax=ax, color='#ff004f')
@@ -233,6 +233,32 @@ class museCube:
 
         pf.fix_plot([ax])
         fig.savefig(f'figs/{self.title}/{id}/lines/spectrum_{target_str}.png', dpi=600, bbox_inches='tight')
+        plt.close(fig)
+
+    def plot_all_lines_on_spectrum(self, rest_spec, linefits, id):
+        fig, ax = pf.create_plot(size=(5, 2))
+
+        rest_spec.plot(ax=ax, color='#ff004f', label='Spectrum')
+
+        line_names = list(self.rest_lambdas.keys())
+
+        for i, linefit in enumerate(linefits):
+            if linefit.flux != 0:
+                profile = self.generate_gaussian_profile(linefit, 500, 4)
+                ax.plot(profile[0], profile[1], color='k', lw=1.2)
+                
+                line_name = line_names[i]
+                label = self.lambda_keys[line_name]
+                
+                peak_y = linefit.cont + linefit.peak
+                ax.text(linefit.lpeak, peak_y * 1.1, label, ha='center', va='bottom', rotation=90, fontsize=8)
+    
+        ax.set_xlabel(r'Rest Wavelength, $\lambda$, [$\AA$]')
+        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
+
+        ax.set_ylim(bottom=0)
+        pf.fix_plot([ax])
+        fig.savefig(f'figs/{self.title}/{id}/spectrum_all_lines.png', dpi=600, bbox_inches='tight')
         plt.close(fig)
 
 
@@ -314,6 +340,9 @@ class museCube:
 
             if plot and linefit.flux!=0:
                 self.plot_extracted_line(rest_spectrum, linefit, linename, id)
+        
+        if plot:
+            self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id)
 
     def process_multiple_ds9(self, csv_path):
         coord_table = Table(ascii.read(csv_path))
