@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from mpdaf.obj import Cube
 from astropy.coordinates import SkyCoord
 import sys
+import os
 import plotfancy as pf
 from matplotlib.patches import Circle
 from astropy.visualization import ZScaleInterval
@@ -120,6 +121,14 @@ class museCube:
         for key, _ in self.rest_lambdas.items():
             for m in meta:
                 self.column_names.append(key+'_'+m)
+        
+        # Add new columns for flux ratios relative to oiii5007
+        for key, _ in self.rest_lambdas.items():
+            if key == 'oiii5007':
+                continue
+            self.column_names.append(key + '_oiii5007_ratio')
+            self.column_names.append(key + '_oiii5007_ratio_err')
+
         self.ex_table = Table(names=self.column_names,dtype=([str]+(len(self.column_names)-1)*[np.float64]))
         self.ex_table.add_index('object_id')
         return True
@@ -235,31 +244,56 @@ class museCube:
         fig.savefig(f'figs/{self.title}/{id}/lines/spectrum_{target_str}.png', dpi=600, bbox_inches='tight')
         plt.close(fig)
 
-    def plot_all_lines_on_spectrum(self, rest_spec, linefits, id):
-        fig, ax = pf.create_plot(size=(5, 2))
+    def plot_all_lines_on_spectrum(self, rest_spec, linefits, id, ra, dec):
+        fig, ax = pf.create_plot(size=(8, 2))
+        ax_cont = fig.add_axes((1.02, 0, 1/4, 1))
 
         rest_spec.plot(ax=ax, color='#ff004f', label='Spectrum')
 
         line_names = list(self.rest_lambdas.keys())
+        
+        max_peak_y = 0
 
         for i, linefit in enumerate(linefits):
             if linefit.flux != 0:
                 profile = self.generate_gaussian_profile(linefit, 500, 4)
-                ax.plot(profile[0], profile[1], color='k', lw=1.2)
-                
-                line_name = line_names[i]
-                label = self.lambda_keys[line_name]
-                
-                peak_y = linefit.cont + linefit.peak
-                ax.text(linefit.lpeak, peak_y * 1.1, label, ha='center', va='bottom', rotation=90, fontsize=8)
+                if not np.sum(profile[1]<0)>0:
+                    ax.plot(profile[0], profile[1], color='k', lw=1.2)
+                    
+                    line_name = line_names[i]
+                    label = self.lambda_keys[line_name]
+                    
+                    peak_y = linefit.cont + linefit.peak
+                    if peak_y > max_peak_y:
+                        max_peak_y = peak_y
+                    ax.text(linefit.lpeak, peak_y * 1.05, label, ha='center', va='bottom', rotation=90, fontsize=8)
     
         ax.set_xlabel(r'Rest Wavelength, $\lambda$, [$\AA$]')
         ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
 
-        ax.set_ylim(bottom=0)
+        if max_peak_y > 0:
+            ax.set_ylim(bottom=-50, top=max_peak_y * 1.5)
+        else:
+            ax.set_ylim(bottom=-50)
+
+        # Continuum plot part
+        subcube_cont = self.cube.select_lambda(7000, 7500)
+        im_cont = subcube_cont.mean(axis=0)
+        im_cutout = im_cont.subimage(center=(dec, ra), size=4.0)
+
+        vmin, vmax = ZScaleInterval().get_limits(im_cutout.data)
+        im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False, cmap='magma')
+        ax_cont.set_xticks([])
+        ax_cont.set_yticks([])
+
+        center_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]
+        aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), 3, edgecolor='white', facecolor='none', lw=2, zorder=10)
+        ax_cont.add_patch(aperture_circle)
+
         pf.fix_plot([ax])
         fig.savefig(f'figs/{self.title}/{id}/spectrum_all_lines.png', dpi=600, bbox_inches='tight')
         plt.close(fig)
+        return True
 
 
     ### EXTRACTION METHODS
@@ -343,6 +377,30 @@ class museCube:
         
         if plot:
             self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id)
+
+        # Calculate and store flux ratios relative to oiii5007
+        locd_row = self.ex_table.loc[id]
+        oiii_flux = locd_row['oiii5007_flux']
+        oiii_flux_err = locd_row['oiii5007_flux_err']
+
+        if oiii_flux != 0 and not np.isnan(oiii_flux):
+            for linename, _ in self.rest_lambdas.items():
+                if linename == 'oiii5007':
+                    continue
+                
+                line_flux = locd_row[linename + '_flux']
+                line_flux_err = locd_row[linename + '_flux_err']
+
+                if line_flux != 0 and not np.isnan(line_flux):
+                    ratio = line_flux / oiii_flux
+                    # Propagate errors
+                    err_ratio = ratio * np.sqrt((line_flux_err / line_flux)**2 + (oiii_flux_err / oiii_flux)**2)
+                    
+                    locd_row[linename + '_oiii5007_ratio'] = ratio
+                    locd_row[linename + '_oiii5007_ratio_err'] = err_ratio
+                else:
+                    locd_row[linename + '_oiii5007_ratio'] = np.nan
+                    locd_row[linename + '_oiii5007_ratio_err'] = np.nan
 
     def process_multiple_ds9(self, csv_path):
         coord_table = Table(ascii.read(csv_path))
