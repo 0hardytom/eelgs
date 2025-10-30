@@ -1,7 +1,7 @@
 # Meeting Notes: MUSE Data Analysis & Calibration
 
 **Date:** 23rd October
-**Supervisor:** [Supervisor Name]
+**Supervisor:** Alastair Edge
 
 ---
 

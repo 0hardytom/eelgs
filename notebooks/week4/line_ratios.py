@@ -123,7 +123,7 @@ def _ccm89_k(wave_angstrom):
     else:
         raise ValueError("Wavelength is outside the valid range for this simplified CCM89 implementation.")
 
-def calculate_ebv_hbeta_hgamma(f_hbeta, f_hgamma):
+def get_ebv(f_hbeta, f_hgamma):
     if f_hbeta <= 0 or f_hgamma <= 0:
         return np.nan
 
@@ -145,7 +145,7 @@ def calculate_ebv_hbeta_hgamma(f_hbeta, f_hgamma):
     
     return ebv
 
-def correct_flux_for_extinction(flux, wavelength, ebv):
+def correct_flux(flux, wavelength, ebv):
     if np.isnan(ebv) or flux <= 0:
         return flux # Return original flux if no correction can be applied
 
