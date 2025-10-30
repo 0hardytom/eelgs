@@ -76,6 +76,9 @@ class museCube:
         'hbeta':    4861.33,
         'hgamma':   4340.46,
         'hdelta':   4101.73,
+        'hepsilon': 3970.08,
+        'hzeta':    3889.06,
+        'heta':     3835.40,
 
         # --- Key Diagnostic Lines ---
         'oiii4363': 4363.21,
@@ -93,30 +96,32 @@ class museCube:
         }
         self.lambda_keys = {
         # --- Primary [OIII] and [OII] ---
-        'oiii5007': r'[OIII] $\lambda$5007',
-        'oiii4959': r'[OIII] $\lambda$4959',
-        'oii3726':  r'[OII] $\lambda$3726',
-        'oii3729':  r'[OII] $\lambda$3729',
+        'oiii5007': r'[OIII] $\lambda$5007$',
+        'oiii4959': r'[OIII] $\lambda$4959$',
+        'oii3726':  r'[OII] $\lambda$3726$',
+        'oii3729':  r'[OII] $\lambda$3729$',
 
         # --- Hydrogen Balmer Series ---
-        'halpha':   r'H$\alpha,
-        'hbeta':    r'H$\beta,
-        'hgamma':   r'H$\gamma,
-        'hdelta':   r'H$\delta,
+        'halpha':   r'H$\alpha$',
+        'hbeta':    r'H$\beta$',
+        'hgamma':   r'H$\gamma$',
+        'hdelta':   r'H$\delta$',
+        'hzeta':    r'H$\zeta$',
+        'heta':      r'H$\eta$',
 
         # --- Key Diagnostic Lines ---
-        'oiii4363': r'[OIII] $\lambda$4363',  # Auroral line
-        'neiii':    r'[NeIII] $\lambda$3869',
+        'oiii4363': r'[OIII] $\lambda$4363$',  # Auroral line
+        'neiii':    r'[NeIII] $\lambda$3869$',
 
         # --- Low-Ionization Lines ---
-        'nii6583':  r'[NII] $\lambda$6583',
-        'nii6548':  r'[NII] $\lambda$6548',
-        'sii6716':  r'[SII] $\lambda$6716',
-        'sii6731':  r'[SII] $\lambda$6731',
+        'nii6583':  r'[NII] $\lambda$6583$',
+        'nii6548':  r'[NII] $\lambda$6548$',
+        'sii6716':  r'[SII] $\lambda$6716$',
+        'sii6731':  r'[SII] $\lambda$6731$',
 
         # --- Helium Lines (not forbidden) ---
-        'heii4686': r'HeII $\lambda$4686',
-        'hei5876':  r'HeI $\lambda$5876',
+        'heii4686': r'HeII $\lambda$4686$',
+        'hei5876':  r'HeI $\lambda$5876$',
         }
         return True
     
