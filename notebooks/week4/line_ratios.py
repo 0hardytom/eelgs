@@ -113,11 +113,6 @@ def get_j19(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta):
     return metallicity
 
 def _ccm89_k(wave_angstrom):
-    """
-    Calculates the k(lambda) value from the CCM89 extinction law.
-    This is a helper function.
-    Source: Cardelli, Clayton & Mathis (1989, ApJ, 345, 245)
-    """
     if 3030.3 <= wave_angstrom <= 10000: # Optical / NIR
         x = 10000.0 / wave_angstrom # inverse microns
         a = 0.574 * (x**1.61)
@@ -126,15 +121,9 @@ def _ccm89_k(wave_angstrom):
         k_lambda = a + b / 3.1
         return k_lambda * 3.1
     else:
-        # This implementation is simplified for the typical optical range of MUSE.
-        # A full implementation would handle UV and IR ranges differently.
         raise ValueError("Wavelength is outside the valid range for this simplified CCM89 implementation.")
 
 def calculate_ebv_hbeta_hgamma(f_hbeta, f_hgamma):
-    """
-    Calculates the color excess E(B-V) using the H-beta / H-gamma ratio.
-    Assumes a theoretical (intrinsic) H-beta/H-gamma ratio of 0.47.
-    """
     if f_hbeta <= 0 or f_hgamma <= 0:
         return np.nan
 
@@ -157,9 +146,6 @@ def calculate_ebv_hbeta_hgamma(f_hbeta, f_hgamma):
     return ebv
 
 def correct_flux_for_extinction(flux, wavelength, ebv):
-    """
-    Corrects a flux for interstellar reddening given a wavelength and E(B-V).
-    """
     if np.isnan(ebv) or flux <= 0:
         return flux # Return original flux if no correction can be applied
 
