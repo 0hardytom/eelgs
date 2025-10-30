@@ -1,3 +1,26 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from mpdaf.obj import Cube
+from astropy.coordinates import SkyCoord
+import sys
+import os
+import plotfancy as pf
+from matplotlib.patches import Circle
+from astropy.visualization import ZScaleInterval
+from astropy.table import Table
+from types import SimpleNamespace
+import re
+from astropy.io import ascii
+from astropy import units as u
+
+from calculate_jiang19_metallicity import calculate_metallicity_jiang19 as cjm19
+
+import logging 
+logging.getLogger('mpdaf').setLevel(logging.WARNING)
+
+pf.housestyle_rcparams()
+
+
 class museCube:
     def __init__(self, path:str):
         ### attributes ###
