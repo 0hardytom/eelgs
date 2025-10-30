@@ -99,10 +99,10 @@ class museCube:
         'oii3729':  r'[OII] $\lambda$3729',
 
         # --- Hydrogen Balmer Series ---
-        'halpha':   r'H$\alpha$',
-        'hbeta':    r'H$\beta$',
-        'hgamma':   r'H$\gamma$',
-        'hdelta':   r'H$\delta$',
+        'halpha':   r'H$\alpha,
+        'hbeta':    r'H$\beta,
+        'hgamma':   r'H$\gamma,
+        'hdelta':   r'H$\delta,
 
         # --- Key Diagnostic Lines ---
         'oiii4363': r'[OIII] $\lambda$4363',  # Auroral line
@@ -232,6 +232,7 @@ class museCube:
         pf.fix_plot([ax])
         fig.savefig(f'figs/{title}/{id}/spectrum.png', dpi=600, bbox_inches='tight')
         plt.close(fig)
+        return True
 
     def plot_extracted_line(self, rest_spec, fit_params, target_str, id):
         profile = self.generate_gaussian_profile(fit_params, 500, 100)
@@ -305,7 +306,7 @@ class museCube:
         return True
 
 
-    ### EXTRACTION METHODS
+    ### EXTRACTION METHODS ###
 
     def fit_line(self,dered_spectra, target_str:str):
         target = self.rest_lambdas[target_str]
@@ -337,66 +338,64 @@ class museCube:
                 )
                 line_fit = fit_mock
         return line_fit
-        
-    def pick_target(self, coords, z_guess, rad, plot=True): # coords has to be an astropy skycoord obj
-        obj_row = []
+    
+    def _prepare_and_extract_spectrum(self, coords, z_guess, rad):
+        """Extracts spectrum, finds redshift, and creates a rest-frame version."""
         id = self.makeid(coords)
-        obj_row.append(id)
         self._dirmanagement(id=id)
-
+        
         radec = (coords.ra.deg, coords.dec.deg)
-        obj_row.extend(radec)
-
-        obj_spectrum = self.extract_spectrum(radec[0],radec[1], radius=rad)
+        
+        obj_spectrum = self.extract_spectrum(radec[0], radec[1], radius=rad)
         self.spectra[id] = obj_spectrum
-
-        obj_z = self.find_z_from_line(obj_spectrum,z_guess) #automatically finds oiii5007
-        obj_row.append(obj_z)
-
+        
+        obj_z = self.find_z_from_line(obj_spectrum, z_guess)
+        
         rest_spectrum = self.deredshift_spectrum(obj_spectrum, obj_z)
         self.rest_spectra[id] = rest_spectrum
+        
+        # Prepare initial row for the table
+        obj_row = [id, radec[0], radec[1], obj_z]
+        self.ex_table.add_row((obj_row + (len(self.column_names) - len(obj_row)) * [np.nan]))
+        
+        return id, radec, obj_spectrum, rest_spectrum
 
-        self.ex_table.add_row((obj_row+(len(self.column_names)-len(self.top)+1)*[np.nan]))
-
-        # plot main spectrum and continuum #
-        if plot:
-            self.plot_spectrum_and_cutout(obj_spectrum, radec[0], radec[1],id)
-
-        # now deal with individual lines #
+    def _fit_all_lines(self, rest_spectrum, id, plot=True):
+        """Fits all lines defined in rest_lambdas and optionally plots them."""
         linefits = []
-        for linename, _ in self.rest_lambdas.items():
-            locd_row = self.ex_table.loc[id]
+        for linename in self.rest_lambdas.keys():
             linefit = self.fit_line(rest_spectrum, linename)
             linefits.append(linefit)
-
-            locd_row[linename+'_flux'] = linefit.flux
-            locd_row[linename+'_flux_err'] = linefit.err_flux
-            locd_row[linename+'_fwhm'] = linefit.fwhm
-            locd_row[linename+'_centroid'] = linefit.lpeak
-
-            if linefit.cont != 0:
-                eqwidth = linefit.flux/linefit.cont
-                locd_row[linename+'_ew'] = eqwidth
-                # locd_row[linename+'_ew_err'] = eqwidth*np.sqrt(
-                #     (linefit.err_flux/linefit.flux)**2+
-                #     (linefit.err_cont/linefit.cont)**2)
-                locd_row[linename+'_ew_err'] = (linefit.err_flux/linefit.flux)*eqwidth if linefit.flux!=0 else np.nan
-            else:
-                locd_row[linename+'_ew'] = np.nan
-                locd_row[linename+'_ew_err'] = np.nan
-
-            if plot and linefit.flux!=0:
+            if plot and linefit.flux != 0:
                 self.plot_extracted_line(rest_spectrum, linefit, linename, id)
-        
-        if plot:
-            self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id, radec[0], radec[1])
+        return linefits
 
+    def _update_table_with_fit_results(self, id, linefits):
+        """Updates the main table with results from line fitting."""
         locd_row = self.ex_table.loc[id]
+        
+        # Store basic fit results
+        for i, linename in enumerate(self.rest_lambdas.keys()):
+            linefit = linefits[i]
+            locd_row[linename + '_flux'] = linefit.flux
+            locd_row[linename + '_flux_err'] = linefit.err_flux
+            locd_row[linename + '_fwhm'] = linefit.fwhm
+            locd_row[linename + '_centroid'] = linefit.lpeak
+            
+            if linefit.cont != 0 and linefit.flux != 0:
+                eqwidth = linefit.flux / linefit.cont
+                locd_row[linename + '_ew'] = eqwidth
+                locd_row[linename + '_ew_err'] = (linefit.err_flux / linefit.flux) * eqwidth
+            else:
+                locd_row[linename + '_ew'] = np.nan
+                locd_row[linename + '_ew_err'] = np.nan
+
+        # Calculate and store line ratios relative to [OIII] 5007
         oiii_flux = locd_row['oiii5007_flux']
         oiii_flux_err = locd_row['oiii5007_flux_err']
 
         if oiii_flux != 0 and not np.isnan(oiii_flux):
-            for linename, _ in self.rest_lambdas.items():
+            for linename in self.rest_lambdas.keys():
                 if linename == 'oiii5007':
                     continue
                 
@@ -404,113 +403,72 @@ class museCube:
                 line_flux_err = locd_row[linename + '_flux_err']
 
                 if line_flux != 0 and not np.isnan(line_flux):
-                    # ratio = line_flux / oiii_flux
-                    ratio = oiii_flux/line_flux
-                    # Propagate errors
-                    err_ratio = ratio * np.sqrt((line_flux_err / line_flux)**2 + (oiii_flux_err / oiii_flux)**2)
-                    
-                    locd_row['oiii5007_'+linename+'_ratio'] = ratio
-                    locd_row['oiii5007_'+linename+'_ratio_err'] = err_ratio
-                else:
-                    locd_row['oiii5007_'+linename+'_ratio'] = np.nan
-                    locd_row['oiii5007_'+linename+'_ratio_err'] = np.nan
-        
-        pxy = self.ex_table.loc[id]
-        pxy['j19_metallicity'] = cjm19(pxy['oiii5007_flux'],
-                                       pxy['oiii4959_flux'],
-                                       pxy['oii3726_flux'],
-                                       pxy['oii3729_flux'],
-                                       pxy['hbeta_flux'])
-
-            
-    def stack_and_fit_spectra(self, plot=True):
-        if not self.rest_spectra:
-            print("No rest-frame spectra to stack.")
-            return
-
-        # Stack rest-frame spectra
-        spectra_to_stack = list(self.rest_spectra.values())
-        
-        stacked_spectrum = spectra_to_stack[0].copy()
-        for spec in spectra_to_stack[1:]:
-            stacked_spectrum.data += spec.data # simple add, assumes same grid. For robustness, resampling would be better
-        
-        # ID for stacked spectrum
-        id = 'STACK'
-        self._dirmanagement(id=id)
-
-        # The stacked spectrum is already in the rest frame
-        rest_spectrum = stacked_spectrum
-        
-        # Calculate mean redshift for the table
-        individual_zs = [self.ex_table.loc[spec_id]['z'] for spec_id in self.rest_spectra.keys() if spec_id != 'STACK']
-        mean_z = np.mean(individual_zs) if individual_zs else np.nan
-
-        # Add row to table
-        if id in self.ex_table['object_id']:
-            idx = np.where(self.ex_table['object_id'] == id)[0][0]
-            self.ex_table.remove_row(idx)
-        
-        obj_row = [id, np.nan, np.nan, mean_z]
-        self.ex_table.add_row((obj_row + (len(self.column_names) - len(self.top)+1) * [np.nan]))
-
-        # Fit individual lines
-        linefits = []
-        for linename, _ in self.rest_lambdas.items():
-            locd_row = self.ex_table.loc[id]
-            linefit = self.fit_line(rest_spectrum, linename)
-            linefits.append(linefit)
-
-            locd_row[linename + '_flux'] = linefit.flux
-            locd_row[linename + '_flux_err'] = linefit.err_flux
-            locd_row[linename + '_fwhm'] = linefit.fwhm
-            locd_row[linename + '_centroid'] = linefit.lpeak
-
-            if linefit.cont != 0:
-                eqwidth = linefit.flux / linefit.cont
-                locd_row[linename + '_ew'] = eqwidth
-                locd_row[linename + '_ew_err'] = (linefit.err_flux / linefit.flux) * eqwidth if linefit.flux != 0 else np.nan
-            else:
-                locd_row[linename + '_ew'] = np.nan
-                locd_row[linename + '_ew_err'] = np.nan
-
-            if plot and linefit.flux != 0:
-                self.plot_extracted_line(rest_spectrum, linefit, linename, id)
-
-        if plot:
-            self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id) # ra, dec are None
-
-        # Calculate ratios
-        locd_row = self.ex_table.loc[id]
-        oiii_flux = locd_row['oiii5007_flux']
-        oiii_flux_err = locd_row['oiii5007_flux_err']
-
-        if oiii_flux != 0 and not np.isnan(oiii_flux):
-            for linename, _ in self.rest_lambdas.items():
-                if linename == 'oiii5007':
-                    continue
-
-                line_flux = locd_row[linename + '_flux']
-                line_flux_err = locd_row[linename + '_flux_err']
-
-                if line_flux != 0 and not np.isnan(line_flux):
                     ratio = oiii_flux / line_flux
                     err_ratio = ratio * np.sqrt((line_flux_err / line_flux)**2 + (oiii_flux_err / oiii_flux)**2)
-                    
                     locd_row['oiii5007_' + linename + '_ratio'] = ratio
                     locd_row['oiii5007_' + linename + '_ratio_err'] = err_ratio
                 else:
                     locd_row['oiii5007_' + linename + '_ratio'] = np.nan
                     locd_row['oiii5007_' + linename + '_ratio_err'] = np.nan
 
+    def _calculate_and_store_metallicity(self, id):
+        """Calculates and stores the Jiang+19 metallicity for a given object."""
         pxy = self.ex_table.loc[id]
-        pxy['j19_metallicity'] = cjm19(pxy['oiii5007_flux'],
-                                       pxy['oiii4959_flux'],
-                                       pxy['oii3726_flux'],
-                                       pxy['oii3729_flux'],
-                                       pxy['hbeta_flux'])
-        return True
+        metallicity = cjm19(
+            pxy['oiii5007_flux'],
+            pxy['oiii4959_flux'],
+            pxy['oii3726_flux'],
+            pxy['oii3729_flux'],
+            pxy['hbeta_flux']
+        )
+        pxy['j19_metallicity'] = metallicity
+
+    def pick_target(self, coords, z_guess, rad, plot=True):
+        """Main workflow for processing a single target."""
+        id, radec, obj_spectrum, rest_spectrum = self._prepare_and_extract_spectrum(coords, z_guess, rad)
+        
+        if plot:
+            self.plot_spectrum_and_cutout(obj_spectrum, radec[0], radec[1], id)
             
+        linefits = self._fit_all_lines(rest_spectrum, id, plot=plot)
+        
+        if plot:
+            self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id, radec[0], radec[1])
+            
+        self._update_table_with_fit_results(id, linefits)
+        self._calculate_and_store_metallicity(id)
+
+    def stack_and_fit_spectra(self, plot=True):
+        """Main workflow for stacking all processed spectra and fitting the result."""
+        if not self.rest_spectra:
+            print("No rest-frame spectra to stack.")
+            return
+
+        # Stack rest-frame spectra
+        spectra_to_stack = list(self.rest_spectra.values())
+        stacked_spectrum = spectra_to_stack[0].copy()
+        for spec in spectra_to_stack[1:]:
+            stacked_spectrum.data += spec.data
+
+        id = 'STACK'
+        self._dirmanagement(id=id)
+        
+        # Prepare table row for the stacked spectrum
+        mean_z = np.mean([self.ex_table.loc[spec_id]['z'] for spec_id in self.rest_spectra.keys()])
+        if id in self.ex_table['object_id']:
+            self.ex_table.remove_row(np.where(self.ex_table['object_id'] == id)[0][0])
+        obj_row = [id, np.nan, np.nan, mean_z]
+        self.ex_table.add_row((obj_row + (len(self.column_names) - len(obj_row)) * [np.nan]))
+
+        # Fit lines and update table
+        linefits = self._fit_all_lines(stacked_spectrum, id, plot=plot)
+        
+        if plot:
+            self.plot_all_lines_on_spectrum(stacked_spectrum, linefits, id)
+            
+        self._update_table_with_fit_results(id, linefits)
+        self._calculate_and_store_metallicity(id)
+        return True
 
     def process_multiple_ds9(self, csv_path):
         coord_table = Table(ascii.read(csv_path))
