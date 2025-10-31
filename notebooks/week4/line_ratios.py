@@ -197,9 +197,9 @@ def get_metallicity_with_errors(f_oiii5007, f_oiii4959, f_oiii4363, f_oii3726, f
         return np.nan, np.nan
 
     mean_metallicity = np.mean(metallicities)
-    std_metallicity = np.std(metallicities)
+    ste_metallicity = np.std(metallicities)/np.sqrt(len(metallicities))
     
-    return mean_metallicity, std_metallicity
+    return mean_metallicity, ste_metallicity
 
 def get_j19_with_errors(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta,
                         err_f_oiii5007, err_f_oiii4959, err_f_oii3726, err_f_oii3729, err_f_hbeta,
@@ -223,6 +223,6 @@ def get_j19_with_errors(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta,
         return np.nan, np.nan
 
     mean_j19 = np.mean(j19_values)
-    std_j19 = np.std(j19_values)
+    ste_j19 = np.std(j19_values)/np.sqrt(len(j19_values))
     
-    return mean_j19, std_j19
+    return mean_j19, ste_j19
