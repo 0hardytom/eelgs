@@ -317,6 +317,19 @@ class museCube:
         target = self.rest_lambdas[target_str]
         try:
             line_fit = dered_spectra.gauss_fit(lmin=(target - 15), lmax=(target + 15), plot=False)
+
+            # Add a check for the validity of the fit
+            sub_spec = dered_spectra.subspec(lmin=target - 15, lmax=target + 15)
+            if sub_spec is not None and line_fit is not None and hasattr(line_fit, 'peak') and hasattr(line_fit, 'cont'):
+                max_data_value = np.max(sub_spec.data)
+                fitted_peak_value = line_fit.peak + line_fit.cont
+                # If the fitted peak is more than 50% higher than the max data point,
+                # it's likely a bad fit.
+                if fitted_peak_value > 1.5 * max_data_value:
+                    # Reject the fit and fall through to the exception-handling logic
+                    # by raising an exception.
+                    raise ValueError("Fitted peak is unrealistically high.")
+
         except Exception:
             sub_spec = dered_spectra.subspec(lmin=target - 15, lmax=target + 15)
             

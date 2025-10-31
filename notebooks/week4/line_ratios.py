@@ -90,27 +90,15 @@ def get_j19(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta):
     O32 = oiii_flux_total / oii_flux_total
     y = np.log10(O32)
 
-    A = c
-    B = b - d * y
-    C = a - d * e * y - logR23
+    discriminant = (b-d*y)**2 - 4*c*(a-d*e*y-logR23)
+    if discriminant<0:
+        return (d*y-b)/(2*c)
+    else:
+        if y>0.5: #includes the >0.6 and the upper branch - applies for most galaxies
+            return ((d*y-b)-np.sqrt(discriminant))/(2*c)
+        else: #anything <0.5
+            return ((d*y-b)+np.sqrt(discriminant))/(2*c)
 
-    discriminant = B**2 - 4 * A * C
-
-    if discriminant < 0:
-        # No real solution exists for the given line ratios
-        print("Warning: No real solution for metallicity (discriminant is negative).")
-        return np.nan
-
-    sqrt_discriminant = np.sqrt(discriminant)
-    x_upper = (-B + sqrt_discriminant) / (2 * A)
-    x_lower = (-B - sqrt_discriminant) / (2 * A)
-
-    if y < 0.5:
-        metallicity = x_upper  # Upper branch
-    else:  # y >= 0.5
-        metallicity = x_lower  # Lower branch
-
-    return metallicity
 
 def _ccm89_k(wave_angstrom):
     if 3030.3 <= wave_angstrom <= 10000: # Optical / NIR
@@ -159,3 +147,84 @@ def correct_flux(flux, wavelength, ebv):
     corrected_flux = flux * 10**(0.4 * a_lambda)
     
     return corrected_flux
+
+
+def get_R23_with_errors(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta,
+                        err_f_oiii5007, err_f_oiii4959, err_f_oii3726, err_f_oii3729, err_f_hbeta):
+    
+    if any(f < 0 for f in [f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta]):
+        return np.nan, np.nan
+    if f_hbeta == 0:
+        return np.nan, np.nan
+
+    oiii_flux_total = f_oiii5007 + f_oiii4959
+    oii_flux_total = f_oii3726 + f_oii3729
+    
+    err_oiii_flux_total_sq = err_f_oiii5007**2 + err_f_oiii4959**2
+    err_oii_flux_total_sq = err_f_oii3726**2 + err_f_oii3729**2
+    
+    numerator = oiii_flux_total + oii_flux_total
+    err_numerator_sq = err_oiii_flux_total_sq + err_oii_flux_total_sq
+    
+    R23 = numerator / f_hbeta
+    
+    if R23 == 0 or numerator == 0:
+        return R23, np.nan
+
+    err_R23 = R23 * np.sqrt((err_numerator_sq / (numerator**2)) + (err_f_hbeta**2 / (f_hbeta**2)))
+    
+    return R23, err_R23
+
+def get_metallicity_with_errors(f_oiii5007, f_oiii4959, f_oiii4363, f_oii3726, f_oii3729, f_hbeta,
+                                err_f_oiii5007, err_f_oiii4959, err_f_oiii4363, err_f_oii3726, err_f_oii3729, err_f_hbeta,
+                                n_mc=1000):
+
+    fluxes = np.array([f_oiii5007, f_oiii4959, f_oiii4363, f_oii3726, f_oii3729, f_hbeta])
+    errors = np.array([err_f_oiii5007, err_f_oiii4959, err_f_oiii4363, err_f_oii3726, err_f_oii3729, err_f_hbeta])
+
+    if np.any(fluxes < 0):
+        return np.nan, np.nan
+
+    # Generate random fluxes
+    rand_fluxes = np.random.normal(loc=fluxes, scale=errors, size=(n_mc, len(fluxes)))
+
+    metallicities = []
+    for f in rand_fluxes:
+        metallicity = get_metallicity(f[0], f[1], f[2], f[3], f[4], f[5])
+        if not np.isnan(metallicity):
+            metallicities.append(metallicity)
+    
+    if not metallicities:
+        return np.nan, np.nan
+
+    mean_metallicity = np.mean(metallicities)
+    std_metallicity = np.std(metallicities)
+    
+    return mean_metallicity, std_metallicity
+
+def get_j19_with_errors(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta,
+                        err_f_oiii5007, err_f_oiii4959, err_f_oii3726, err_f_oii3729, err_f_hbeta,
+                        n_mc=1000):
+
+    fluxes = np.array([f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta])
+    errors = np.array([err_f_oiii5007, err_f_oiii4959, err_f_oii3726, err_f_oii3729, err_f_hbeta])
+
+    if np.any(fluxes < 0):
+        return np.nan, np.nan
+
+    # Generate random fluxes
+    rand_fluxes = np.random.normal(loc=fluxes, scale=errors, size=(n_mc, len(fluxes)))
+
+    j19_values = []
+    for f in rand_fluxes:
+        j19 = get_j19(f[0], f[1], f[2], f[3], f[4])
+        if not np.isnan(j19):
+            j19_values.append(j19)
+            
+    if not j19_values:
+        return np.nan, np.nan
+
+    mean_j19 = np.mean(j19_values)
+    std_j19 = np.std(j19_values)
+    
+    return mean_j19, std_j19
