@@ -185,7 +185,6 @@ def get_metallicity_with_errors(f_oiii5007, f_oiii4959, f_oiii4363, f_oii3726, f
     if np.any(fluxes < 0):
         return np.nan, np.nan
 
-    # Generate random fluxes
     rand_fluxes = np.random.normal(loc=fluxes, scale=errors, size=(n_mc, len(fluxes)))
 
     metallicities = []
@@ -212,7 +211,6 @@ def get_j19_with_errors(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta,
     if np.any(fluxes < 0):
         return np.nan, np.nan
 
-    # Generate random fluxes
     rand_fluxes = np.random.normal(loc=fluxes, scale=errors, size=(n_mc, len(fluxes)))
 
     j19_values = []
