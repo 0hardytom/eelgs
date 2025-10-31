@@ -41,13 +41,17 @@ def get_metallicity(f_oiii5007, f_oiii4959, f_oiii4363, f_oii3726, f_oii3729, f_
     # Input validation
     fluxes = [f_oiii5007, f_oiii4959, f_oiii4363, f_oii3726, f_oii3729, f_hbeta]
     if any(f < 0 for f in fluxes):
+        # print('WARNING: Negative Flux')
         return np.nan
     if f_hbeta == 0:
+        print('WARNING: No Hbeta')
         return np.nan
     if f_oiii4363 == 0:
+        print('WARNING: No oiii4363')
         return np.nan
     R_OIII = (f_oiii5007 + f_oiii4959) / f_oiii4363
     if R_OIII <= 7.937:
+        # print('WARNING: R_OIII too small')
         return np.nan
     T_e_oiii = 32940 / np.log(R_OIII / 7.937)
     # Campbell, Terlevich & Melnick (1986)
@@ -61,6 +65,7 @@ def get_metallicity(f_oiii5007, f_oiii4959, f_oiii4363, f_oii3726, f_oii3729, f_
     o_plus_over_h = (oii_flux_total / f_hbeta) * 1e-6 * (t_e_oii**0.55) * np.exp(1.96 / t_e_oii)
     o_over_h = o_plus_plus_over_h + o_plus_over_h
     if o_over_h <= 0:
+        # print('WARNING: o_over_h<0')
         return np.nan
     return 12 + np.log10(o_over_h)
 
@@ -194,6 +199,7 @@ def get_metallicity_with_errors(f_oiii5007, f_oiii4959, f_oiii4363, f_oii3726, f
             metallicities.append(metallicity)
     
     if not metallicities:
+        # print('WARNING: metallicites empty')
         return np.nan, np.nan
 
     mean_metallicity = np.mean(metallicities)
