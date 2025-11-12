@@ -49,24 +49,41 @@ class Candidates:
         if not block_lines:
             return Table(), redshift
 
-        data_for_table = []
+        # Parse data directly into lists
+        ras, decs, oiii_ests, descriptions = [], [], [], []
+        has_descriptions = False
         for line in block_lines:
             parts = line.strip().split(maxsplit=3)
             if len(parts) < 3:
-                continue # Skip empty or malformed lines
-            
-            ra, dec, id_val = parts[:3]
-            description = parts[3] if len(parts) > 3 else ''
-            # Quote the description to handle spaces
-            data_for_table.append(f"{ra} {dec} {id_val} '{description}'")
+                continue  # Skip empty or malformed lines
 
-        table_string = '\n'.join(data_for_table)
+            ras.append(parts[0])
+            decs.append(parts[1])
+            oiii_ests.append(parts[2])
+            
+            if len(parts) > 3:
+                descriptions.append(parts[3])
+                has_descriptions = True
+            else:
+                descriptions.append('')
+
+        # Build the table directly
+        if has_descriptions:
+            table = Table({
+                'RA': ras,
+                'Dec': decs,
+                'OIII_est': oiii_ests,
+                'Description': descriptions
+            })
+        else:
+            table = Table({
+                'RA': ras,
+                'Dec': decs,
+                'OIII_est': oiii_ests,
+            })
         
-        try:
-            table = Table.read(table_string, format='ascii.fast_no_header', names=['RA', 'Dec', 'ID', 'Description'], delimiter=' ')
-        except Exception:
-            table_string_3_col = '\n'.join([' '.join(line.strip().split()[:3]) for line in block_lines])
-            table = Table.read(table_string_3_col, format='ascii.fast_no_header', names=['RA', 'Dec', 'ID'], delimiter=' ')
+        if table:
+            table['OIII_est'] = table['OIII_est'].astype(int)
 
         return table, redshift
 
