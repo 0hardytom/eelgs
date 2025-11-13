@@ -173,16 +173,24 @@ def get_j19(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta):
             return ((d*y-b)+np.sqrt(discriminant))/(2*c)
 
 
+# def _ccm89_k(wave_angstrom):
+#     if 2000 <= wave_angstrom <= 12000: # Optical / NIR
+#         x = 10000.0 / wave_angstrom # inverse microns
+#         a = 0.574 * (x**1.61)
+#         b = -0.527 * (x**1.61)
+#         # For R_V = 3.1
+#         k_lambda = a + b / 3.1
+#         return k_lambda * 3.1
+#     else:
+#         raise ValueError("Wavelength is outside the valid range for this simplified CCM89 implementation.")
+    
 def _ccm89_k(wave_angstrom):
-    if 3030.3 <= wave_angstrom <= 10000: # Optical / NIR
-        x = 10000.0 / wave_angstrom # inverse microns
-        a = 0.574 * (x**1.61)
-        b = -0.527 * (x**1.61)
-        # For R_V = 3.1
-        k_lambda = a + b / 3.1
-        return k_lambda * 3.1
-    else:
-        raise ValueError("Wavelength is outside the valid range for this simplified CCM89 implementation.")
+    x = 10000.0 / wave_angstrom # inverse microns
+    a = 0.574 * (x**1.61)
+    b = -0.527 * (x**1.61)
+    # For R_V = 3.1
+    k_lambda = a + b / 3.1
+    return k_lambda * 3.1
 
 def get_ebv(observed_ratio, intrinsic_ratio = 0.47, wave_one =4861.33, wave_two=4340.46 ):
 
