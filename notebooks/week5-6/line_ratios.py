@@ -184,25 +184,15 @@ def _ccm89_k(wave_angstrom):
     else:
         raise ValueError("Wavelength is outside the valid range for this simplified CCM89 implementation.")
 
-def get_ebv(f_hbeta, f_hgamma):
-    if f_hbeta <= 0 or f_hgamma <= 0:
-        return np.nan
-
-    # Theoretical and observed ratios
-    intrinsic_ratio = 0.47
-    observed_ratio = f_hbeta / f_hgamma
-
-    # Wavelengths in Angstroms
-    wave_hbeta = 4861.33
-    wave_hgamma = 4340.46
+def get_ebv(observed_ratio, intrinsic_ratio = 0.47, wave_one =4861.33, wave_two=4340.46 ):
 
     # Extinction law values
-    k_hbeta = _ccm89_k(wave_hbeta)
-    k_hgamma = _ccm89_k(wave_hgamma)
+    k_one = _ccm89_k(wave_one)
+    k_two = _ccm89_k(wave_two)
 
     # Calculate E(B-V)
     # Formula derived from: F_obs/F_int = 10^(-0.4 * A_lambda)
-    ebv = 2.5 * (np.log10(observed_ratio) - np.log10(intrinsic_ratio)) / (k_hgamma - k_hbeta)
+    ebv = 2.5 * (np.log10(observed_ratio) - np.log10(intrinsic_ratio)) / (k_two - k_one)
     
     return ebv
 
