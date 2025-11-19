@@ -480,7 +480,7 @@ class museCube:
                 err_lpeak=0.0, err_fwhm=0.0
             )
 
-        if sub_spec is None or sub_spec.data.shape[0] < 4:
+        if sub_spec is None or sub_spec.data.ndim == 0 or sub_spec.data.shape[0] < 4:
             return create_mock_fit(target_3726), create_mock_fit(target_3729)
 
         wave = sub_spec.wave.coord()
@@ -532,7 +532,9 @@ class museCube:
             )
 
         # Unpack params and errors
-        amp1, mean1, std1, amp2, mean2, cont = fit.parameters
+        # The `parameters` attribute contains all 7 model parameters, including the tied one.
+        amp1, mean1, std1, amp2, mean2, _, cont = fit.parameters
+        # The covariance matrix only contains entries for the 6 *free* parameters.
         err_amp1, err_mean1, err_std1, err_amp2, err_mean2, err_cont = fit_error_diag
 
         fit_3726 = create_fit_ns(amp1, mean1, std1, cont, err_amp1, err_mean1, err_std1, err_cont)
