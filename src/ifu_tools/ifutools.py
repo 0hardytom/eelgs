@@ -13,6 +13,7 @@ import re
 from astropy.io import ascii
 from astropy import units as u
 from astropy.table import Table, vstack, hstack
+from astropy.modeling import models, fitting
 
 # from calculate_jiang19_metallicity import calculate_metallicity_jiang19 as cjm19
 sys.path.append('../../')
@@ -461,16 +462,138 @@ class museCube:
         
         return id, radec, obj_spectrum, rest_spectrum
     
+    def fit_oii_doublet(self, dered_spectra, plot=False, id=None):
+        lmin, lmax = 3715, 3740
+        sub_spec = dered_spectra.subspec(lmin=lmin, lmax=lmax)
+
+        target_3726 = self.rest_lambdas['oii3726']
+        target_3729 = self.rest_lambdas['oii3729']
+
+        # Mock objects for failure cases
+        def create_mock_fit(target_lambda):
+            sub_spec_continuum = dered_spectra.subspec(lmin=target_lambda - 10, lmax=target_lambda + 10)
+            continuum = np.mean(sub_spec_continuum.data) if sub_spec_continuum is not None else 0
+            std_err = np.std(sub_spec_continuum.data) if sub_spec_continuum is not None else 0
+            return SimpleNamespace(
+                flux=0.0, err_flux=std_err, peak=0.0, cont=continuum,
+                lpeak=target_lambda, fwhm=1.0, err_peak=std_err, err_cont=std_err,
+                err_lpeak=0.0, err_fwhm=0.0
+            )
+
+        if sub_spec is None or sub_spec.data.shape[0] < 4:
+            return create_mock_fit(target_3726), create_mock_fit(target_3729)
+
+        wave = sub_spec.wave.coord()
+        flux = sub_spec.data
+        
+        # Initial guesses
+        cont_guess = np.median(flux)
+        peak_guess = np.max(flux) - cont_guess
+        if peak_guess <= 0: # If no obvious peak, return mocks
+             return create_mock_fit(target_3726), create_mock_fit(target_3729)
+
+        # Astropy models
+        g3726 = models.Gaussian1D(amplitude=peak_guess, mean=target_3726, stddev=1.0, bounds={'mean': (target_3726-5, target_3726+5), 'amplitude': (0, 2*peak_guess)})
+        g3729 = models.Gaussian1D(amplitude=peak_guess, mean=target_3729, stddev=1.0, bounds={'mean': (target_3729-5, target_3729+5), 'amplitude': (0, 2*peak_guess)})
+        continuum = models.Const1D(amplitude=cont_guess)
+
+        # Tie standard deviations
+        def tie_stddev(model):
+            return model.stddev_0
+        g3729.stddev.tied = tie_stddev
+
+        doublet_model = g3726 + g3729 + continuum
+        fitter = fitting.LevMarLSQFitter()
+
+        try:
+            fit = fitter(doublet_model, wave, flux)
+            if fitter.fit_info.get('param_cov') is None:
+                raise ValueError("Covariance matrix not computed.")
+            fit_error_diag = np.sqrt(np.diag(fitter.fit_info['param_cov']))
+        except Exception as e:
+            # Fallback to single fits if double fit fails
+            return self.fit_line(dered_spectra, 'oii3726'), self.fit_line(dered_spectra, 'oii3729')
+
+        # Create fit objects from results
+        def create_fit_ns(amplitude, mean, stddev, cont, amp_err, mean_err, stddev_err, cont_err):
+            fwhm = stddev * 2.35482
+            fwhm_err = stddev_err * 2.35482
+            
+            gauss_flux = amplitude * stddev * np.sqrt(2 * np.pi)
+            if amplitude > 0 and stddev > 0:
+                flux_err = gauss_flux * np.sqrt((amp_err / amplitude)**2 + (stddev_err / stddev)**2) if amplitude != 0 else 0
+            else:
+                flux_err = 0.0
+
+            return SimpleNamespace(
+                flux=gauss_flux, err_flux=flux_err, peak=amplitude, cont=cont,
+                lpeak=mean, fwhm=fwhm, err_peak=amp_err, err_cont=cont_err,
+                err_lpeak=mean_err, err_fwhm=fwhm_err
+            )
+
+        # Unpack params and errors
+        amp1, mean1, std1, amp2, mean2, cont = fit.parameters
+        err_amp1, err_mean1, err_std1, err_amp2, err_mean2, err_cont = fit_error_diag
+
+        fit_3726 = create_fit_ns(amp1, mean1, std1, cont, err_amp1, err_mean1, err_std1, err_cont)
+        fit_3729 = create_fit_ns(amp2, mean2, std1, cont, err_amp2, err_mean2, err_std1, err_cont) # Use std1 and err_std1 for tied param
+
+        if plot and id:
+            self.plot_oii_doublet(sub_spec, fit, id)
+
+        return fit_3726, fit_3729
+
+    def plot_oii_doublet(self, sub_spec, fit_model, id):
+        wave = sub_spec.wave.coord()
+        
+        fig, ax = pf.create_plot(size=(4,2))
+        ax.set_title(r'[OII] Doublet Fit')
+        
+        # Plot data
+        sub_spec.plot(ax=ax, color='#ff004f', label='Data')
+        
+        # Plot full model
+        ax.plot(wave, fit_model(wave), color='k', lw=1.4, label='Total Fit')
+        
+        # Plot individual components
+        g1 = fit_model[0]
+        g2 = fit_model[1]
+        cont = fit_model[2]
+        ax.plot(wave, g1(wave) + cont(wave), 'b--', label='[OII] 3726')
+        ax.plot(wave, g2(wave) + cont(wave), 'g--', label='[OII] 3729')
+        
+        ax.set_xlabel(r'Rest Wavelength, $\lambda$, [$\AA$]')
+        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
+        ax.legend(fontsize='small')
+
+        pf.fix_plot([ax])
+        fig.savefig(f'figs/{self.title}/{id}/lines/spectrum_oii_doublet.png', dpi=600, bbox_inches='tight')
+        plt.close(fig)
+    
     # def _fix_oii(self,rest_spectrum)
         
 
     def _fit_all_lines(self, rest_spectrum, id, plot=True):
         linefits = []
-        for linename in self.rest_lambdas.keys():
+        linenames = list(self.rest_lambdas.keys())
+        i = 0
+        while i < len(linenames):
+            linename = linenames[i]
+            
+            if linename == 'oii3726':
+                oii3726_fit, oii3729_fit = self.fit_oii_doublet(rest_spectrum, plot=plot, id=id)
+                linefits.append(oii3726_fit)
+                linefits.append(oii3729_fit)
+                i += 2  # Increment by 2 to skip oii3729
+                continue
+            
             linefit = self.fit_line(rest_spectrum, linename)
             linefits.append(linefit)
             if plot and linefit.flux != 0:
                 self.plot_extracted_line(rest_spectrum, linefit, linename, id)
+            
+            i += 1
+            
         return linefits
     
     def _fit_balmer_lines(self, rest_spectrum,id):
