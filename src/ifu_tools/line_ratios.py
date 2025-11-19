@@ -1,17 +1,85 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from mpdaf.obj import Cube
-from astropy.coordinates import SkyCoord
-import sys
-import os
-import plotfancy as pf
-from matplotlib.patches import Circle
-from astropy.visualization import ZScaleInterval
-from astropy.table import Table
-from types import SimpleNamespace
-import re
-from astropy.io import ascii
-from astropy import units as u
+
+def kewley01(log_nii_ha):
+    """
+    Calculates the theoretical "maximum starburst" line from Kewley et al. (2001).
+    
+    This demarcation line separates AGN from star-forming/composite galaxies. 
+    Points above this line are generally classified as AGN.
+
+    Parameters
+    ----------
+    log_nii_ha : float or array-like
+        The log10 of the [N II]/H-alpha flux ratio.
+
+    Returns
+    -------
+    float or array-like
+        The corresponding log10([O III]/H-beta) value for the demarcation line.
+    """
+    return 0.61 / (log_nii_ha - 0.47) + 1.19
+
+def kauffmann03(log_nii_ha):
+    """
+    Calculates the empirical demarcation line from Kauffmann et al. (2003).
+
+    This line separates purely star-forming galaxies from composite galaxies.
+    Points below this line are classified as star-forming.
+
+    Parameters
+    ----------
+    log_nii_ha : float or array-like
+        The log10 of the [N II]/H-alpha flux ratio.
+
+    Returns
+    -------
+    float or array-like
+        The corresponding log10([O III]/H-beta) value for the demarcation line.
+    """
+    return 0.61 / (log_nii_ha - 0.05) + 1.3
+
+def classify_bpt(log_nii_ha, log_oiii_hb):
+    """
+    Classifies galaxies into Star-forming, Composite, and AGN based on BPT diagram position.
+
+    Parameters
+    ----------
+    log_nii_ha : array-like
+        The log10 of the [N II]/H-alpha flux ratio (x-axis values).
+    log_oiii_hb : array-like
+        The log10 of the [O III]/H-beta flux ratio (y-axis values).
+
+    Returns
+    -------
+    dict
+        A dictionary containing boolean masks for each classification:
+        'starburst': Star-forming galaxies
+        'transition': Composite/transition objects
+        'agn': Active Galactic Nuclei
+    """
+    # Calculate the y-values of the demarcation lines for each galaxy's x-value
+    y_kauffmann = kauffmann03(log_nii_ha)
+    y_kewley = kewley01(log_nii_ha)
+
+    # --- Classification Conditions ---
+    # 1. Below the Kauffmann line is Star-forming ('starburst')
+    #    (only defined for log_nii_ha < 0.05)
+    is_starburst = (log_oiii_hb < y_kauffmann) & (log_nii_ha < 0.05)
+
+    # 2. Above the Kewley line is AGN
+    #    (also includes objects with log_nii_ha > 0.47, where the line is not defined)
+    is_agn = (log_oiii_hb > y_kewley) | (log_nii_ha >= 0.47)
+
+    # 3. Everything in between is a Composite/Transition object
+    #    We find this by selecting objects that are NOT starburst and NOT AGN.
+    is_transition = (~is_starburst) & (~is_agn)
+
+    return {
+        'starburst': is_starburst,
+        'transition': is_transition,
+        'agn': is_agn
+    }
+
 
 def get_R23(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta):
     if any(f < 0 for f in [f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta]):
@@ -105,36 +173,34 @@ def get_j19(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta):
             return ((d*y-b)+np.sqrt(discriminant))/(2*c)
 
 
+# def _ccm89_k(wave_angstrom):
+#     if 2000 <= wave_angstrom <= 12000: # Optical / NIR
+#         x = 10000.0 / wave_angstrom # inverse microns
+#         a = 0.574 * (x**1.61)
+#         b = -0.527 * (x**1.61)
+#         # For R_V = 3.1
+#         k_lambda = a + b / 3.1
+#         return k_lambda * 3.1
+#     else:
+#         raise ValueError("Wavelength is outside the valid range for this simplified CCM89 implementation.")
+    
 def _ccm89_k(wave_angstrom):
-    if 3030.3 <= wave_angstrom <= 10000: # Optical / NIR
-        x = 10000.0 / wave_angstrom # inverse microns
-        a = 0.574 * (x**1.61)
-        b = -0.527 * (x**1.61)
-        # For R_V = 3.1
-        k_lambda = a + b / 3.1
-        return k_lambda * 3.1
-    else:
-        raise ValueError("Wavelength is outside the valid range for this simplified CCM89 implementation.")
+    x = 10000.0 / wave_angstrom # inverse microns
+    a = 0.574 * (x**1.61)
+    b = -0.527 * (x**1.61)
+    # For R_V = 3.1
+    k_lambda = a + b / 3.1
+    return k_lambda * 3.1
 
-def get_ebv(f_hbeta, f_hgamma):
-    if f_hbeta <= 0 or f_hgamma <= 0:
-        return np.nan
-
-    # Theoretical and observed ratios
-    intrinsic_ratio = 0.47
-    observed_ratio = f_hbeta / f_hgamma
-
-    # Wavelengths in Angstroms
-    wave_hbeta = 4861.33
-    wave_hgamma = 4340.46
+def get_ebv(observed_ratio, intrinsic_ratio = 0.47, wave_one =4861.33, wave_two=4340.46 ):
 
     # Extinction law values
-    k_hbeta = _ccm89_k(wave_hbeta)
-    k_hgamma = _ccm89_k(wave_hgamma)
+    k_one = _ccm89_k(wave_one)
+    k_two = _ccm89_k(wave_two)
 
     # Calculate E(B-V)
     # Formula derived from: F_obs/F_int = 10^(-0.4 * A_lambda)
-    ebv = 2.5 * (np.log10(observed_ratio) - np.log10(intrinsic_ratio)) / (k_hgamma - k_hbeta)
+    ebv = 2.5 * (np.log10(observed_ratio) - np.log10(intrinsic_ratio)) / (k_two - k_one)
     
     return ebv
 

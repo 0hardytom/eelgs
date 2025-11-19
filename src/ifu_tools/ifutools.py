@@ -3,181 +3,834 @@ import matplotlib.pyplot as plt
 from mpdaf.obj import Cube
 from astropy.coordinates import SkyCoord
 import sys
+import os
 import plotfancy as pf
 from matplotlib.patches import Circle
 from astropy.visualization import ZScaleInterval
+from astropy.table import Table
+from types import SimpleNamespace
+import re
+from astropy.io import ascii
+from astropy import units as u
+from astropy.table import Table, vstack, hstack
 
-CUBE_PATH = '../../cubes/macs0159m34_COMBINED_CUBE_MED_FINAL.fits'
-TITLE = 'MACS'
-RADIUS_ARCSEC = .6
-Z_GUESS = 0.249
+# from calculate_jiang19_metallicity import calculate_metallicity_jiang19 as cjm19
+sys.path.append('../../')
+# import src.ifu_tools.line_ratios as lr
+import line_ratios as lr
 
-coords = SkyCoord('01h59m04.03s', '-34d13m31.8s', frame='icrs')
-RA_DEG = coords.ra.deg
-DEC_DEG = coords.dec.deg
+import logging 
+logging.getLogger('mpdaf').setLevel(logging.WARNING)
 
-def generate_gaussian_profile(params, num_points=500, width_factor=4.0):
-    sigma = params.fwhm / (2 * np.sqrt(2 * np.log(2)))
-    x_min = params.lpeak - width_factor * params.fwhm / 2
-    x_max = params.lpeak + width_factor * params.fwhm / 2
-    x = np.linspace(x_min, x_max, num_points)
-    y = params.cont + params.peak * np.exp(-((x - params.lpeak) ** 2) / (2 * sigma ** 2))
-    return np.vstack((x, y))
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-def load_cube(path):
-    print(f'Loading datacube: {path}...')
-    try:
-        cube = Cube(path)
-        print(f'Successfully loaded cube. Dimensions: {cube.shape}')
-        return cube
-    except FileNotFoundError:
-        print(f'Error: Datacube not found at {path}')
-        sys.exit(1)
+pf.housestyle_rcparams()
 
-def extract_spectrum(cube, ra, dec, radius):
-    center = (dec, ra)
-    print(f'\nExtracting spectrum at (RA, Dec) = ({ra:.6f}, {dec:.6f}) with a {radius}" radius aperture.')
-    spec = cube.aperture(center, radius, is_sum=True)
-    print('Extraction complete.')
-    return spec
+class museCube:
+    def __init__(self, path:str, cluster_ra:np.float64, cluster_dec:np.float64, loud=False):
+        ### attributes ###
+        self.loud = loud
+        self.centre = SkyCoord(cluster_ra*u.deg, cluster_dec*u.deg,frame='icrs')
+        self.path = path
+        self.title = self._get_title()
+        self.spectra = {}
+        self.rest_spectra = {}
+        ### initialisers ###
+        self.init_cube(self.path)
+        self.init_lambda()
+        self.init_table()
 
-def plot_spectrum_and_cutout(spec, cube, ra, dec, radius, title, pref):
-    fig, ax = pf.create_plot(size=(8, 2))
-    ax_cont = fig.add_axes((1.02, 0, 1/4, 1))
-    spec.plot(ax=ax, title=f'{title} at (RA={ra:.4f}, Dec={dec:.4f})', color='#ff004f')
-    ax.set_xlabel(r'Wavelength, $\lambda$, [$\AA$]')
-    ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
-    fig.canvas.manager.set_window_title('Extracted Spectrum')
+    ### INITIALISERS ###
+    def _dirmanagement(self,id):
+        if not os.path.isdir(f'figs/{self.title}/{id}/balmer'):
+            if not os.path.isdir(f'figs/{self.title}/{id}'):
+                if not os.path.isdir(f'figs/{self.title}'):
+                    if not os.path.isdir('figs'):
+                        os.mkdir(f'figs')
+                    os.mkdir(f'figs/{self.title}')
+                os.mkdir(f'figs/{self.title}/{id}')
+                os.mkdir(f'figs/{self.title}/{id}/lines')
+            os.mkdir(f'figs/{self.title}/{id}/balmer')
+        if not os.path.isdir(f'dat'):
+            os.mkdir(f'dat')
+        return True
 
-    subcube_cont = cube.select_lambda(7000, 7500)
-    im_cont = subcube_cont.mean(axis=0)
-    im_cutout = im_cont.subimage(center=(dec, ra), size=4.0)
-
-    vmin, vmax = ZScaleInterval().get_limits(im_cutout.data)
-    im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False)
-    ax_cont.set_xticks([])
-    ax_cont.set_yticks([])
-
-    ny, nx = im_cutout.shape
-    center_pix_yx = (ny / 2, nx / 2)
-    radius_pix = radius / im_cutout.wcs.get_step()[0]
-    aperture_circle = Circle((center_pix_yx[1], center_pix_yx[0]), radius_pix, edgecolor='black', facecolor='none', lw=2)
-    ax_cont.add_patch(aperture_circle)
-
-    pf.fix_plot([ax])
-    fig.savefig(f'figs/{title}_{pref}_spectra.png', dpi=600, bbox_inches='tight')
-
-def measure_redshift(spec, z_guess):
-    print('\nMeasuring spectroscopic redshift...')
-    lines_for_z = {'Hbeta': 4861.33, 'OIII_5007': 5006.84, 'Halpha': 6562.80}
-    redshifts = []
-    for name, rest_wave in lines_for_z.items():
-        obs_wave_guess = rest_wave * (1 + z_guess)
-        try:
-            fit = spec.gauss_fit(lmin=(obs_wave_guess - 30), lmax=(obs_wave_guess + 30), plot=False)
-            line_z = (fit.lpeak / rest_wave) - 1
-            redshifts.append(line_z)
-            print(f'  - {name}: Found at {fit.lpeak:.2f} \AA, z = {line_z:.5f}')
-        except Exception:
-            print(f'  - {name}: Fit failed near {obs_wave_guess:.2f} \AA.')
-
-    if not redshifts:
-        print('\nError: Could not measure redshift. Using initial guess.')
-        return z_guess, 0.0
-    
-    z_measured = np.mean(redshifts)
-    z_err = np.std(redshifts) / np.sqrt(len(redshifts)) if len(redshifts) > 1 else 0.0
-    print(f'\nMeasured Redshift z = {z_measured:.5f} \xB1 {z_err:.5f}')
-    return z_measured, z_err
-
-def deredshift_spectrum(spec, z):
-    spec_rest = spec.copy()
-    spec_rest.wave.set_crval(spec_rest.wave.get_crval() / (1 + z))
-    spec_rest.wave.set_step(spec_rest.wave.get_step() / (1 + z))
-    return spec_rest
-
-def fit_emission_lines(spec_rest):
-    lines = {'Hbeta': 4861.33, 'OIII_5007': 5006.84, 'Halpha': 6562.80, 'NII_6583': 6583.45}
-    line_fits = {}
-    for name, wave in lines.items():
-        try:
-            line_fits[name] = spec_rest.gauss_fit(lmin=(wave - 15), lmax=(wave + 15), plot=False)
-        except Exception:
-            line_fits[name] = None
-    return line_fits
-
-def plot_line_fits(spec_rest, line_fits, z, z_err, title, pref):
-    titles = {'Hbeta': r'H$\beta$', 'OIII_5007': r'O$_{\mathrm{III-}5007}$', 'Halpha': r'H$\alpha$', 'NII_6583': r'N$_{\mathrm{II-}6583}$'}
-    fig, axes = plt.subplots(2, 2, figsize=(8, 7.5))
-    fig.canvas.manager.set_window_title('Emission Line Fits')
-
-    for ax, name in zip(axes.ravel(), titles.keys()):
-        fit = line_fits.get(name)
-        if fit:
-            profile = generate_gaussian_profile(fit, 500, 100)
-            ax.plot(profile[0], profile[1], color='k', lw=1.4)
-            spec_rest.plot(ax=ax, color='#ff004f')
-            ax.set_xlim([np.min(profile[0]), np.max(profile[0])])
-            ax.set_title(titles[name])
-            ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
-            ax.set_xlabel(r'Rest Frame $\lambda$, [$\AA$]')
+    def _get_title(self):
+        pattern = r'cubes/([^_]+)_'
+        match = re.search(pattern, self.path)
+        if match:
+            return match.group(1)
         else:
-            ax.set_title(f'{titles[name]} (Fit Failed)')
-            ax.text(0.5, 0.5, 'No data', ha='center', va='center', transform=ax.transAxes)
+            return 'BLANK'
+
+    def init_cube(self, PATH):
+        if self.loud: print(f'Loading datacube: {PATH}...')
+        try:
+            cube = Cube(PATH)
+            if self.loud: print(f'Successfully loaded cube. Dimensions: {cube.shape}')
+            self.cube = cube
+            return True
+        except FileNotFoundError:
+            print(f'Error: Datacube not found at {PATH}')
+            sys.exit(1)
     
-    title_lines = [f'Spectroscopic Redshift z = {z:.5f} \u00B1 {z_err:.5f}' if z_err > 0 else f'Spectroscopic Redshift z = {z:.5f}']
+    def init_lambda(self):
+        self.rest_lambdas = {
+        # --- Primary [OIII] and [OII] ---
+        'oiii5007': 5006.84,
+        'oiii4959': 4958.91,
+        'oii3726':  3726.03,
+        'oii3729':  3728.82,
+
+        # --- Hydrogen Balmer Series ---
+        'halpha':   6562.80,
+        'hbeta':    4861.33,
+        'hgamma':   4340.46,
+        'hdelta':   4101.73,
+        'hepsilon': 3970.08,
+        'hzeta':    3889.06,
+        'heta':     3835.40,
+
+        # --- Key Diagnostic Lines ---
+        'oiii4363': 4363.21,
+        'neiii':    3868.75,
+
+        # --- Low-Ionization Lines ---
+        'nii6583':  6583.45,
+        'nii6548':  6548.05,
+        'sii6716':  6716.44,
+        'sii6731':  6730.82,
+
+        # --- Helium Lines ---
+        'heii4686': 4685.68,
+        'hei5876':  5875.62,
+        }
+        self.balmer_lambda = {
+        # 'halpha':   6562.80,
+        'hbeta':    4861.33,
+        'hgamma':   4340.46,
+        'hdelta':   4101.73,
+        'hepsilon': 3970.08,
+        'hzeta':    3889.06,
+        'heta':     3835.40,
+        }
+        self.lambda_keys = {
+        # --- Primary [OIII] and [OII] ---
+        'oiii5007': r'[OIII] $\lambda$5007',
+        'oiii4959': r'[OIII] $\lambda$4959',
+        'oii3726':  r'[OII] $\lambda$3726',
+        'oii3729':  r'[OII] $\lambda$3729',
+
+        # --- Hydrogen Balmer Series ---
+        'halpha':   r'H$\alpha$',
+        'hbeta':    r'H$\beta$',
+        'hgamma':   r'H$\gamma$',
+        'hdelta':   r'H$\delta$',
+        'hepsilon': r'H$\epsilon$',
+        'hzeta':    r'H$\zeta$',
+        'heta':     r'H$\eta$',
+
+        # --- Key Diagnostic Lines ---
+        'oiii4363': r'[OIII] $\lambda$4363',  # Auroral line
+        'neiii':    r'[NeIII] $\lambda$3869',
+
+        # --- Low-Ionization Lines ---
+        'nii6583':  r'[NII] $\lambda$6583',
+        'nii6548':  r'[NII] $\lambda$6548',
+        'sii6716':  r'[SII] $\lambda$6716',
+        'sii6731':  r'[SII] $\lambda$6731',
+
+        # --- Helium Lines (not forbidden) ---
+        'heii4686': r'HeII $\lambda$4686',
+        'hei5876':  r'HeI $\lambda$5876',
+        }
+        return True
     
-    oiii_fit = line_fits.get('OIII_5007')
-    hbeta_fit = line_fits.get('Hbeta')
-    if oiii_fit and hbeta_fit and hbeta_fit.flux > 0:
-        ratio = oiii_fit.flux / hbeta_fit.flux
-        err = ratio * np.sqrt((oiii_fit.err_flux / oiii_fit.flux)**2 + (hbeta_fit.err_flux / hbeta_fit.flux)**2)
-        log_ratio = np.log10(ratio)
-        log_err = err / (ratio * np.log(10))
-        print(f'[OIII]/H\u03b2 = {ratio:.3f} +/- {err:.3f}')
-        print(f'log([OIII]/H\u03b2) = {log_ratio:.3f} +/- {log_err:.3f}\n')
-        title_lines.append(fr'$\log([\mathrm{{OIII}}] / \mathrm{{H}}\beta) = {log_ratio:.2f} \pm {log_err:.2f}$')
-    else:
-        print('[OIII]/Hbeta could not be calculated.\n')
-        title_lines.append(r'$\log([\mathrm{OIII}] / \mathrm{H}\beta)$ not calculated')
+    def init_table(self, cnames=None):
+        self.top = ['object_id', 'ra', 'dec','z','angdisp',
+                    'Z_dir','Z_dir_e',
+                    'Z_j19','Z_j19_e',
+                    'R23','R23_e',
+                    'mean_vel_disp','sterr_vel_disp',
+                    'zcluster','name'] 
+        self.column_names = self.top if cnames==None else cnames
+        self.meta = ['flux','flux_err', 'ew','ew_err', 'centroid', 'fwhm','vel_disp']
+        for key, _ in self.rest_lambdas.items():
+            for m in self.meta:
+                self.column_names.append(key+'_'+m)
 
-    nii_fit = line_fits.get('NII_6583')
-    halpha_fit = line_fits.get('Halpha')
-    if nii_fit and halpha_fit and halpha_fit.flux > 0:
-        ratio = nii_fit.flux / halpha_fit.flux
-        err = ratio * np.sqrt((nii_fit.err_flux / nii_fit.flux)**2 + (halpha_fit.err_flux / halpha_fit.flux)**2)
-        log_ratio = np.log10(ratio)
-        log_err = err / (ratio * np.log(10))
-        print(f'[NII]/H\u03b1 = {ratio:.3f} +/- {err:.3f}')
-        print(f'log([NII]/H\u03b1) = {log_ratio:.3f} +/- {log_err:.3f}\n')
-        title_lines.append(fr'$\log([\mathrm{{NII}}] / \mathrm{{H}}\alpha) = {log_ratio:.2f} \pm {log_err:.2f}$')
-    else:
-        print('[NII]/Halpha could not be calculated.\n')
-        title_lines.append(r'$\log([\mathrm{NII}] / \mathrm{H}\alpha)$ not calculated')
+        dtypes = []
+        for name in self.column_names:
+            if name in ['object_id', 'name']:
+                dtypes.append(str)
+            else:
+                dtypes.append(np.float64)
+        
+        self.ex_table = Table(names=self.column_names,dtype=dtypes)
 
-    fig.suptitle('\n'.join(title_lines), y=1.0, bbox=dict(boxstyle='square,pad=0.5', fc='white', ec='black', lw=1))
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    pf.fix_plot(axes.flatten())
-    fig.savefig(f'figs/{title}_{pref}_lines.png', dpi=600, bbox_inches='tight')
+        # self.ex_table = Table(names=self.column_names,dtype=([str]+(len(self.column_names)-1)*[np.float64]))
+        self.ex_table.add_index('object_id')
+        return True
+    
+    ### BASIC METHODS ###
+    def extract_region_centres(self,reg_file_path): #for reading ds9 reg files
+        coord_pattern = re.compile(r'\w+\(([^,]+),([^,]+),.*\)')
+        centres = []
+        try:
+            with open(reg_file_path, 'r') as f:
+                for line in f:
+                    line_strip = line.strip()
+                    if line_strip.startswith('#') or line_strip in ['global', 'fk5', 'icrs', 'image']:
+                        continue
+                    match = coord_pattern.match(line_strip)
+                    if match:
+                        ra_str, dec_str = match.groups()
+                        try:
+                            ra = float(ra_str)
+                            dec = float(dec_str)
+                            centres.append((ra, dec))
+                        except ValueError:
+                            print(f"Warning: Could not parse coordinates from line: {line_strip}")
+        except FileNotFoundError:
+            print(f"Error: Region file not found at {reg_file_path}")
+            return None
+        return centres
+    
+    def write_regions_to_csv(self,reg_file_path, csv_file_path):
+        coordinates = self.extract_region_centres(reg_file_path)
+        if coordinates is None:
+            print("Could not extract coordinates. Aborting CSV write.")
+            return False
+        try:
+            coord_table = Table(rows=coordinates, names=('ra', 'dec'))
+            coord_table.write(csv_file_path, format='csv', overwrite=True)
+            return True
+        except Exception as e:
+            print(f"An error occurred while writing with Astropy: {e}")
+            return False
 
-def analyze_galaxy_spectrum(cube_path, ra, dec, radius, z_guess, title, pref):
-    cube = load_cube(cube_path)
-    spec = extract_spectrum(cube, ra, dec, radius)
-    plot_spectrum_and_cutout(spec, cube, ra, dec, radius, title, pref)
-    z, z_err = measure_redshift(spec, z_guess)
-    spec_rest = deredshift_spectrum(spec, z)
-    line_fits = fit_emission_lines(spec_rest)
-    plot_line_fits(spec_rest, line_fits, z, z_err, title, pref)
-    return spec, line_fits
+    def extract_spectrum(self, ra, dec, radius):
+        centre = (dec, ra)
+        spec = self.cube.aperture(centre, radius, is_sum=True)
+        return spec
+    
+    def deredshift_spectrum(self, spec, z):
+        spec_rest = spec.copy()
+        spec_rest.wave.set_crval(spec_rest.wave.get_crval() / (1 + z))
+        spec_rest.wave.set_step(spec_rest.wave.get_step() / (1 + z))
+        return spec_rest
+    
+    def generate_gaussian_profile(self, params, num_points=500, width_factor=4.0):
+        sigma = params.fwhm / (2 * np.sqrt(2 * np.log(2)))
+        x_min = params.lpeak - width_factor * params.fwhm / 2
+        x_max = params.lpeak + width_factor * params.fwhm / 2
+        x = np.linspace(x_min, x_max, num_points)
+        y = params.cont + params.peak * np.exp(-((x - params.lpeak) ** 2) / (2 * sigma ** 2))
+        return np.vstack((x, y))
+    
+    def find_z_from_line(self, spec, zapprox, target_str:str='oiii5007'):
+        target = self.rest_lambdas[target_str]
+        obs_wave_guess = target * (1 + zapprox)
+        fit = spec.gauss_fit(lmin=(obs_wave_guess - 20), lmax=(obs_wave_guess + 20), plot=False)
+        line_z = (fit.lpeak / target) - 1
+        return line_z
+    
+    def makeid(self, cds):
+        return str(cds.ra).replace('.','pt') + str(cds.dec).replace('.','pt')
+    
+    def write_table(self):
+        self.ex_table.write(f'dat/{self.title}_data.csv', overwrite=True)
+    
+    ### PLOTTING FUNCTIONS ###
+    def plot_spectrum_and_cutout(self,spec, ra, dec, id):
+        title = self.title
+        fig, ax = pf.create_plot(size=(8, 2))
+        ax_cont = fig.add_axes((1.02, 0, 1/4, 1))
+        spec.plot(ax=ax, title=fr'{title} at (RA={ra:.4f}, Dec={dec:.4f})$^\circ$', color='#ff004f')
+        ax.set_xlabel(r'Wavelength, $\lambda$, [$\AA$]')
+        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
 
-if __name__ == '__main__':
-    analyze_galaxy_spectrum(
-        cube_path=CUBE_PATH,
-        ra=RA_DEG,
-        dec=DEC_DEG,
-        radius=RADIUS_ARCSEC,
-        z_guess=Z_GUESS,
-        title=TITLE,
-        pref='MACS0159'
-    )
-    plt.show()
+        subcube_cont = self.cube.select_lambda(7000, 7500)
+        im_cont = subcube_cont.mean(axis=0)
+        im_cutout = im_cont.subimage(center=(dec, ra), size=4.0)
+
+        vmin, vmax = ZScaleInterval().get_limits(im_cutout.data)
+        im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False, cmap='magma')
+        ax_cont.set_xticks([])
+        ax_cont.set_yticks([])
+
+        centre_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]
+        aperture_circle = Circle((centre_pix_yx[1], centre_pix_yx[0]), 3, edgecolor='white', facecolor='none', lw=2, zorder=10)
+        ax_cont.add_patch(aperture_circle)
+
+        pf.fix_plot([ax])
+        fig.savefig(f'figs/{title}/{id}/spectrum.png', dpi=600, bbox_inches='tight')
+        plt.close(fig)
+        return True
+
+    def plot_extracted_line(self, rest_spec, fit_params, target_str, id):
+        profile = self.generate_gaussian_profile(fit_params, 500, 100)
+
+        fig, ax = pf.create_plot(size=(4,2))
+
+        ax.set_title('Line Fit for '+self.lambda_keys[target_str])
+        
+        rest_spec.plot(ax=ax, color='#ff004f')
+        ax.plot(profile[0], profile[1], color='k', lw=1.4)
+
+        ax.set_xlim(np.min(profile[0]), np.max(profile[0]))
+        ax.set_ylim(-0.1*np.max(profile[0]), 1.5*np.max(profile[0]))
+
+        ax.set_xlabel(r'O$_{III}$-Calibrated Rest-$\lambda$, [$\AA$] }')
+        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
+
+        pf.fix_plot([ax])
+        fig.savefig(f'figs/{self.title}/{id}/lines/spectrum_{target_str}.png', dpi=600, bbox_inches='tight')
+        plt.close(fig)
+
+    def plot_all_lines_on_spectrum(self, rest_spec, linefits, id, ra=None, dec=None):
+        fig, ax = pf.create_plot(size=(8, 2))
+        if ra is not None and dec is not None:
+            ax_cont = fig.add_axes((1.02, 0, 1/4, 1))
+
+        rest_spec.plot(ax=ax, color='#ff004f', label='Spectrum')
+
+        line_names = list(self.rest_lambdas.keys())
+        
+        max_peak_y = np.max(rest_spec.data)
+
+        for i, linefit in enumerate(linefits):
+            if linefit.flux != 0:
+                profile = self.generate_gaussian_profile(linefit, 500, 4)
+                # if not np.sum(profile[1]<0)>0:
+                if linefit.peak>0:
+                    ax.plot(profile[0], profile[1], color='k', lw=1.2)
+                    
+                    line_name = line_names[i]
+                    label = self.lambda_keys[line_name]
+                    
+                    peak_y = linefit.cont + linefit.peak
+                    if peak_y > max_peak_y:
+                        max_peak_y = peak_y
+                    ax.text(linefit.lpeak, peak_y * 1.05, label, ha='center', va='bottom', rotation=90, fontsize=8)
+    
+        ax.set_xlabel(r'Rest Wavelength, $\lambda$, [$\AA$]')
+        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
+
+        if max_peak_y > 0:
+            ax.set_ylim(bottom=-50, top=max_peak_y * 1.5)
+        else:
+            ax.set_ylim(bottom=-50)
+
+        # Continuum plot part
+        if ra is not None and dec is not None:
+            subcube_cont = self.cube.select_lambda(7000, 7500)
+            im_cont = subcube_cont.mean(axis=0)
+            im_cutout = im_cont.subimage(center=(dec, ra), size=4.0)
+
+            vmin, vmax = ZScaleInterval().get_limits(im_cutout.data)
+            im_cutout.plot(ax=ax_cont, vmin=vmin, vmax=vmax, show_xlabel=False, show_ylabel=False, cmap='magma')
+            ax_cont.set_xticks([])
+            ax_cont.set_yticks([])
+
+            centre_pix_yx = im_cutout.wcs.sky2pix([dec, ra], 1)[0]
+            aperture_circle = Circle((centre_pix_yx[1], centre_pix_yx[0]), 3, edgecolor='white', facecolor='none', lw=2, zorder=10)
+            ax_cont.add_patch(aperture_circle)
+
+        pf.fix_plot([ax])
+        fig.savefig(f'figs/{self.title}/{id}/spectrum_all_lines.png', dpi=600, bbox_inches='tight')
+        plt.close(fig)
+        return True
+    
+    def balmer_diagnostic_plot(self, rest_spec, linefits, id):
+
+        fig, ax = pf.create_plot(size=(8, 2))
+
+        rest_spec.plot(ax=ax, color='#ff004f', label='Spectrum')
+
+        line_names = list(self.balmer_lambda.keys())
+        fluxes = []
+        
+        max_peak_y = np.max(rest_spec.data)
+
+        for i, linefit in enumerate(linefits):
+            fluxes.append(linefit.flux)
+            if linefit.flux != 0:
+                profile = self.generate_gaussian_profile(linefit, 500, 4)
+                # if not np.sum(profile[1]<0)>0:
+                if linefit.peak>0:
+                    ax.plot(profile[0], profile[1], color='k', lw=1.2)
+                    
+                    line_name = line_names[i]
+                    label = self.lambda_keys[line_name]
+                    
+                    peak_y = linefit.cont + linefit.peak
+                    if peak_y > max_peak_y:
+                        max_peak_y = peak_y
+                    ax.text(linefit.lpeak, peak_y * 1.05, label, ha='center', va='bottom', rotation=90, fontsize=8)
+
+        fluxes = np.array(fluxes)
+        fluxes_norm = fluxes/fluxes[0]
+        flux_string = ":".join([f"{f:.2f}" for f in fluxes_norm[:5]])
+        ax.set_title(r'$\beta:\gamma:\delta:\epsilon:\zeta:\nu=$'+flux_string)
+        ax.set_xlabel(r'Rest Wavelength, $\lambda$, [$\AA$]')
+        ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
+
+        ax.set_ylim(bottom=-0.11*max_peak_y, top=max_peak_y * 1.5)
+
+        ax.fill_between([0,3646], 2*[-1000], 2*[4*max_peak_y], color='#77aca2', zorder=-10, alpha=0.3)
+        ax.fill_between([3646,10000], 2*[-1000], 2*[4*max_peak_y], color='#ff004f', zorder=-10, alpha=0.3)
+
+        ax.text(3100,1.2*max_peak_y,'Continuum')
+        ax.text(4600,1.2*max_peak_y,'Series')
+
+        pf.fix_plot([ax])
+        fig.savefig(f'figs/{self.title}/{id}/balmer/balmer_diag.png', dpi=600, bbox_inches='tight')
+        plt.close(fig)
+        return True
+
+
+    ### EXTRACTION METHODS ###
+
+    def fit_line(self,dered_spectra, target_str:str):
+        target = self.rest_lambdas[target_str]
+        try:
+            line_fit = dered_spectra.gauss_fit(lmin=(target - 50), lmax=(target + 50),lpeak=target ,plot=False)
+
+            # check for the validity of the fit
+            sub_spec = dered_spectra.subspec(lmin=target - 15, lmax=target + 15)
+            if sub_spec is not None and line_fit is not None and hasattr(line_fit, 'peak') and hasattr(line_fit, 'cont'):
+                max_data_value = np.max(sub_spec.data)
+                fitted_peak_value = line_fit.peak + line_fit.cont
+                if fitted_peak_value > 1.5 * max_data_value:
+                    raise ValueError("Fitted peak is unrealistically high.")
+        except Exception:
+            sub_spec = dered_spectra.subspec(lmin=target - 10, lmax=target + 10)
+            
+            spec_for_continuum = None
+            if sub_spec is not None and len(sub_spec.shape) == 1 and sub_spec.shape[0] > 2:
+                spec_for_continuum = sub_spec
+            elif dered_spectra is not None and len(dered_spectra.shape) == 1 and dered_spectra.shape[0] > 2:
+                spec_for_continuum = dered_spectra
+            if spec_for_continuum:
+                continuum = np.mean(spec_for_continuum.data)
+                std_err = np.std(spec_for_continuum.data)
+                
+                fit_mock = SimpleNamespace(
+                    flux=0.0,
+                    err_flux=std_err,
+                    peak=0.0,
+                    cont=continuum,
+                    lpeak=target,
+                    fwhm=1.0,
+                    err_peak=std_err,
+                    err_cont=std_err,
+                    err_lpeak=0.0,
+                    err_fwhm=0.0
+                )
+                line_fit = fit_mock
+        return line_fit
+    
+    def _prepare_and_extract_spectrum(self, coords, z_guess, rad):
+        id = self.makeid(coords)
+        self._dirmanagement(id=id)
+        
+        radec = (coords.ra.deg, coords.dec.deg)
+        
+        obj_spectrum = self.extract_spectrum(radec[0], radec[1], radius=rad)
+        self.spectra[id] = obj_spectrum
+        
+        try:
+            obj_z = self.find_z_from_line(obj_spectrum, z_guess)
+        except:
+            print(f'fit for {self.title} OIII line at {(z_guess+1)*5007}')
+        
+        rest_spectrum = self.deredshift_spectrum(obj_spectrum, obj_z)
+        self.rest_spectra[id] = rest_spectrum
+        
+        # Prepare initial row for the table
+        row_data = {
+            'object_id': id,
+            'ra': radec[0],
+            'dec': radec[1],
+            'z': obj_z,
+            'name': id
+        }
+        self.ex_table.add_row(row_data)
+        
+        return id, radec, obj_spectrum, rest_spectrum
+    
+    # def _fix_oii(self,rest_spectrum)
+        
+
+    def _fit_all_lines(self, rest_spectrum, id, plot=True):
+        linefits = []
+        for linename in self.rest_lambdas.keys():
+            linefit = self.fit_line(rest_spectrum, linename)
+            linefits.append(linefit)
+            if plot and linefit.flux != 0:
+                self.plot_extracted_line(rest_spectrum, linefit, linename, id)
+        return linefits
+    
+    def _fit_balmer_lines(self, rest_spectrum,id):
+        linefits = []
+        for linename in self.balmer_lambda.keys():
+            linefit = self.fit_line(rest_spectrum, linename)
+            linefits.append(linefit)
+        return linefits
+
+    def _update_table_with_fit_results(self, pxy, linefits):
+        locd_row = pxy
+        
+        # Store basic fit results
+        for i, linename in enumerate(self.rest_lambdas.keys()):
+            rest_wl = self.rest_lambdas.get(linename)
+            linefit = linefits[i]
+
+            rest_spectrum = self.rest_spectra.get(id)
+
+            # resn = rest_spectrum.wave.get_step() if rest_spectrum else 1
+            resn = 0.7 
+
+            locd_row[linename + '_flux'] = linefit.flux
+            locd_row[linename + '_flux_err'] = linefit.err_flux
+            locd_row[linename + '_fwhm'] = linefit.fwhm
+            locd_row[linename + '_centroid'] = linefit.lpeak
+            locd_row[linename + '_vel_disp'] = lr.get_velocity_disp(linefit.fwhm, rest_wl,resn)
+            
+            if linefit.cont != 0 and linefit.flux != 0:
+                eqwidth = linefit.flux / np.abs(linefit.cont)
+                locd_row[linename + '_ew'] = eqwidth
+                locd_row[linename + '_ew_err'] = (linefit.err_flux / linefit.flux) * eqwidth
+            else:
+                locd_row[linename + '_ew'] = np.nan
+                locd_row[linename + '_ew_err'] = np.nan
+
+    def _correct_flux(self, pxy, donothing=False):
+        self.raw_table = self.ex_table.copy()
+        # ebv_corr = lr.get_ebv(pxy['hbeta_flux'], pxy['hgamma_flux'])
+        ebv_corr = 0.286
+        flux_keys = [key for key in self.ex_table.colnames if key.endswith('_flux')]
+        for key in flux_keys:
+            linekey = key[:-5]
+            flux = pxy[key].copy()
+            if donothing:
+                pxy[key] = flux
+            else:
+                pxy[key] = lr.correct_flux(flux,pxy[linekey+'_centroid'],ebv_corr)
+
+    def _avg_velo_disps(self, pxy):
+        global vel_keys
+        vel_keys = [key for key in self.ex_table.colnames if key.endswith('_vel_disp')]
+        vels = []
+        for key in vel_keys:
+            vels.append(pxy[key])
+        vels = np.array(vels)
+        # print(vels)
+        pxy['mean_vel_disp'] = np.nanmean(vels)
+        pxy['sterr_vel_disp'] = np.nanstd(vels)/np.sqrt(np.count_nonzero(~np.isnan(vels)))
+
+
+    def _direct_mcity(self, pxy):
+        metallicity, err = lr.get_metallicity_with_errors(
+            pxy['oiii5007_flux'],pxy['oiii4959_flux'],pxy['oiii4363_flux'],
+            pxy['oii3726_flux'],pxy['oii3729_flux'],pxy['hbeta_flux'],
+            pxy['oiii5007_flux_err'],pxy['oiii4959_flux_err'],pxy['oiii4363_flux_err'],
+            pxy['oii3726_flux_err'],pxy['oii3729_flux_err'],pxy['hbeta_flux_err'],
+        )
+        pxy['Z_dir'] = metallicity
+        pxy['Z_dir_e'] = err
+
+    def _j19_mcity(self, pxy):
+        metallicity, err = lr.get_j19_with_errors(
+            pxy['oiii5007_flux'],pxy['oiii4959_flux'],pxy['oii3726_flux'],
+            pxy['oii3729_flux'],pxy['hbeta_flux'],
+            pxy['oiii5007_flux_err'],pxy['oiii4959_flux_err'],pxy['oii3726_flux_err'],
+            pxy['oii3729_flux_err'],pxy['hbeta_flux_err'],
+        )
+        pxy['Z_j19'] = metallicity
+        pxy['Z_j19_e'] = err
+
+    def _r23(self, pxy):
+        r23, err = lr.get_R23_with_errors(
+            pxy['oiii5007_flux'],pxy['oiii4959_flux'],pxy['oii3726_flux'],
+            pxy['oii3729_flux'],pxy['hbeta_flux'],
+            pxy['oiii5007_flux_err'],pxy['oiii4959_flux_err'],pxy['oii3726_flux_err'],
+            pxy['oii3729_flux_err'],pxy['hbeta_flux_err'],
+        )
+        pxy['R23'] = r23
+        pxy['R23_e'] = err
+ 
+    def _update_metallicities(self, PXY):
+        self._direct_mcity(PXY)
+        self._j19_mcity(PXY)
+        self._r23(PXY)
+        return True
+    
+    def table_management(self, ID, LINEFITS, ANGDISP):
+        pxy = self.ex_table.loc[ID]
+        pxy['angdisp'] = ANGDISP*3600 # now in arcseconds
+        self._update_table_with_fit_results(pxy, LINEFITS)
+        self._correct_flux(pxy)
+        self._update_metallicities(pxy)
+        self._avg_velo_disps(pxy)
+        return True
+
+    def pick_target(self, coords, z_guess, rad, plot=True):
+        id, radec, obj_spectrum, rest_spectrum = self._prepare_and_extract_spectrum(coords, z_guess, rad)
+        angdisp = np.sqrt((radec[0]-self.centre.ra.deg)**2+(radec[1]-self.centre.dec.deg)**2)
+        
+        if plot:
+            self.plot_spectrum_and_cutout(obj_spectrum, radec[0], radec[1], id)
+            
+        linefits = self._fit_all_lines(rest_spectrum, id, plot=plot)
+        balmer_linefits = self._fit_balmer_lines(rest_spectrum, id)
+        
+        if plot:
+            self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id, radec[0], radec[1])
+            self.balmer_diagnostic_plot(rest_spectrum, balmer_linefits, id)
+            
+        self.table_management(id,linefits, angdisp)
+
+        # self.table_management(id,linefits)
+        return True
+
+    def stack_and_fit_spectra(self, plot=True):
+        if not self.rest_spectra:
+            print("No rest-frame spectra to stack.")
+            return
+
+        # Stack rest-frame spectra
+        spectra_to_stack = list(self.rest_spectra.values())
+        stacked_spectrum = spectra_to_stack[0].copy()
+        for spec in spectra_to_stack[1:]:
+            stacked_spectrum.data += spec.data
+
+        id = 'STACK'
+        self._dirmanagement(id=id)
+        
+        # Prepare table row for the stacked spectrum
+        mean_z = np.mean([self.ex_table.loc[spec_id]['z'] for spec_id in self.rest_spectra.keys()])
+        if id in self.ex_table['object_id']:
+            self.ex_table.remove_row(np.where(self.ex_table['object_id'] == id)[0][0])
+
+        row_data = {
+            'object_id': id,
+            'z': mean_z,
+            'name': id
+        }
+        self.ex_table.add_row(row_data)
+
+        # Fit lines and update table
+        linefits = self._fit_all_lines(stacked_spectrum, id, plot=plot)
+        balmer_linefits = self._fit_balmer_lines(stacked_spectrum, id)
+        if plot:
+            self.plot_all_lines_on_spectrum(stacked_spectrum, linefits, id)
+            self.balmer_diagnostic_plot(stacked_spectrum, balmer_linefits, id)
+        
+        self.table_management(id,linefits, np.nan)
+        return True
+    
+    def master_stack_and_fit_spectra(self, rest_spectra:dict, plot=True,):
+        # Stack rest-frame spectra
+        spectra_to_stack = list(rest_spectra.values())
+        stacked_spectrum = spectra_to_stack[0].copy()
+        for spec in spectra_to_stack[1:]:
+            stacked_spectrum.data += spec.data
+
+        id = 'STACK_master'
+        self._dirmanagement(id=id)
+        
+        # Prepare table row for the stacked spectrum
+        if id in self.ex_table['object_id']:
+            self.ex_table.remove_row(np.where(self.ex_table['object_id'] == id)[0][0])
+
+        row_data = {
+            'object_id': id,
+            'name': id
+        }
+        self.ex_table.add_row(row_data)
+
+        # Fit lines and update table
+        linefits = self._fit_all_lines(stacked_spectrum, id, plot=plot)
+        balmer_linefits = self._fit_balmer_lines(stacked_spectrum, id)
+        if plot:
+            self.plot_all_lines_on_spectrum(stacked_spectrum, linefits, id)
+            self.balmer_diagnostic_plot(stacked_spectrum, balmer_linefits, id)
+        
+        self.table_management(id,linefits, np.nan)
+        return True
+
+    def process_multiple_ds9(self, csv_path):
+        coord_table = Table(ascii.read(csv_path))
+        all_coords = SkyCoord(coord_table['ra'] * u.deg,
+                              coord_table['dec'] * u.deg,
+                              frame='icrs')
+        for i in range(len(all_coords)):
+            csv_coords = all_coords[i]
+            z_estimate = coord_table['z_est'][i]
+            self.pick_target(csv_coords, z_estimate, 0.7)
+        self.stack_and_fit_spectra(plot=True)
+        self.write_table()
+
+    def process_multiple_candidates(self, coord_table, zcl=np.nan):
+
+        all_coords = SkyCoord(coord_table['ra'] * u.deg,
+                              coord_table['dec'] * u.deg,
+                              frame='icrs')
+        for i in range(len(all_coords)):
+            csv_coords = all_coords[i]
+            z_estimate = (coord_table['OIII_est'][i]/5006.84) -1
+            # print(f'{z_estimate}')
+            self.pick_target(csv_coords, z_estimate, 0.7)
+        self.stack_and_fit_spectra(plot=True)
+        self.write_table()
+
+        self.ex_table['zcluster'] = zcl
+        self.ex_table['name'] = self.ex_table['name'].astype(str)
+        self.ex_table['name'] = self.title
+
+
+class Candidates:
+    def __init__(self, file_path: str = 'candidates.list'):
+        self.file_path = file_path
+        self._data = {}
+        self._keys = []
+        self._parse_file()
+        self.analysed = False # ticker for coadd 
+        
+
+    def _parse_file(self):
+        with open(self.file_path, 'r') as f:
+            lines = f.readlines()
+
+        current_key = None
+        block_lines = []
+
+        for line in lines:
+            stripped_line = line.strip()
+            if 'z=' in stripped_line and not stripped_line.startswith(('0', '1', '2')):
+                if current_key: # Save previous block
+                    self._data[current_key]['lines'] = block_lines
+                    block_lines = []
+
+                parts = stripped_line.split(' z=')
+                current_key = parts[0]
+                redshift = float(parts[1])
+                self._keys.append(current_key)
+                self._data[current_key] = {'redshift': redshift, 'lines': []}
+            elif current_key and stripped_line:
+                block_lines.append(stripped_line)
+        
+        if current_key: # Save the last block
+            self._data[current_key]['lines'] = block_lines
+        
+        self._keys_corrected = ['../../cubes/'+(a.replace('-','m')).replace('+','p').lower()+'_COMBINED_CUBE_MED_FINAL.fits' for a in self.keys()]
+
+
+    def keys(self):
+        return self._keys
+    
+    def keys_corrected(self):
+        return self._keys_corrected
+
+    def get_candidate(self, key: str):
+        if key not in self._data:
+            raise ValueError(f"Key '{key}' not found in {self.file_path}")
+
+        info = self._data[key]
+        redshift = info['redshift']
+        block_lines = info['lines']
+
+        if not block_lines:
+            return Table(), redshift
+
+        # Parse data directly into lists
+        ras, decs, oiii_ests, descriptions = [], [], [], []
+        has_descriptions = False
+        for line in block_lines:
+            parts = line.strip().split(maxsplit=3)
+            if len(parts) < 3:
+                continue  # Skip empty or malformed lines
+
+            ras.append(parts[0])
+            decs.append(parts[1])
+            oiii_ests.append(parts[2])
+            
+            if len(parts) > 3:
+                descriptions.append(parts[3])
+                has_descriptions = True
+            else:
+                descriptions.append('')
+
+        # Build the table directly
+        if has_descriptions:
+            table = Table({
+                'RA': ras,
+                'Dec': decs,
+                'OIII_est': oiii_ests,
+                'Description': descriptions
+            })
+        else:
+            table = Table({
+                'RA': ras,
+                'Dec': decs,
+                'OIII_est': oiii_ests,
+            })
+        if table:
+            table['OIII_est'] = table['OIII_est'].astype(int)
+
+        return table, redshift
+    
+    def analyse_all(self):
+        self.analysed = True
+
+        tables = {}
+        spectra = {}
+        for i,key in enumerate(self.keys_corrected()):
+            name = self.keys()[i]
+            print(f'running {name}')
+            tab, z = self.get_candidate(name)
+            coords = SkyCoord(tab['RA'], tab['Dec'],unit=(u.hourangle, u.deg))
+            tab['ra'] = coords.ra.degree
+            tab['dec'] = coords.dec.degree
+
+            hdr = Cube(key).get_wcs_header()
+            indiv_cube = museCube(key,cluster_ra=hdr['CRVAL1'],cluster_dec=hdr['CRVAL2'])
+            indiv_cube.process_multiple_candidates(tab, zcl=z)
+
+            tables[name] = indiv_cube.ex_table
+            spectra[name] = indiv_cube.rest_spectra
+
+        self.combined_table = vstack(list(tables.values()))
+        self.combined_table.write('allsources.csv', overwrite=True)
+        self.spectra = spectra
+
+    def coadd(self) -> dict:
+        if not self.analysed:
+            self.analyse_all()
+        
+        # flat_spectra_dict = {
+        # target+'//'+source_id: s
+        # for target, sources in self.spectra.items()
+        # for source_id, s in sources.items()
+        # }
+
+        example = self.spectra.get('MACS0152-28').get('28d07m28pt35s-28d53m18pt439s')
+
+        global_min_wave = example.get_start()
+        global_max_wave =example.get_end()
+        step = example.get_step()
+
+        shape = int((global_max_wave - global_min_wave) / step) + 1
+
+        rebinned_spectra_dict = {}
+
+        for target, sources in self.spectra.items():
+            for source_id, spec in sources.items():
+                new_spec = spec.resample(step=step, start=global_min_wave, shape=shape)
+                rebinned_spectra_dict[target+'//'+source_id] = new_spec
+        
+        return rebinned_spectra_dict
+        
