@@ -150,6 +150,7 @@ class museCube:
     
     def init_table(self, cnames=None):
         self.top = ['object_id', 'ra', 'dec','z','angdisp',
+                    'foreground', 'cluster_member', 'lensed',
                     'Z_dir','Z_dir_e',
                     'Z_j19','Z_j19_e',
                     'R23','R23_e',
@@ -165,6 +166,8 @@ class museCube:
         for name in self.column_names:
             if name in ['object_id', 'name']:
                 dtypes.append(str)
+            elif name in ['foreground', 'cluster_member', 'lensed']:
+                dtypes.append(int)
             else:
                 dtypes.append(np.float64)
         
@@ -433,7 +436,7 @@ class museCube:
                 line_fit = fit_mock
         return line_fit
     
-    def _prepare_and_extract_spectrum(self, coords, z_guess, rad):
+    def _prepare_and_extract_spectrum(self, coords, z_guess, rad, foreground=0, cluster_member=0, lensed=0):
         id = self.makeid(coords)
         self._dirmanagement(id=id)
         
@@ -445,7 +448,8 @@ class museCube:
         try:
             obj_z = self.find_z_from_line(obj_spectrum, z_guess)
         except:
-            print(f'fit for {self.title} OIII line at {(z_guess+1)*5007}')
+            print(f'fit for {self.title} OIII line at {(z_guess+1)*5007} failed, using guess z')
+            obj_z = z_guess
         
         rest_spectrum = self.deredshift_spectrum(obj_spectrum, obj_z)
         self.rest_spectra[id] = rest_spectrum
@@ -456,6 +460,9 @@ class museCube:
             'ra': radec[0],
             'dec': radec[1],
             'z': obj_z,
+            'foreground': foreground,
+            'cluster_member': cluster_member,
+            'lensed': lensed,
             'name': id
         }
         self.ex_table.add_row(row_data)
@@ -487,7 +494,7 @@ class museCube:
         flux = sub_spec.data
         
         # Initial guesses
-        cont_guess = np.median(flux)
+        cont_guess = np.ma.median(flux)
         peak_guess = np.max(flux) - cont_guess
         if peak_guess <= 0: # If no obvious peak, return mocks
              return create_mock_fit(target_3726), create_mock_fit(target_3729)
@@ -702,8 +709,8 @@ class museCube:
         self._avg_velo_disps(pxy)
         return True
 
-    def pick_target(self, coords, z_guess, rad, plot=True):
-        id, radec, obj_spectrum, rest_spectrum = self._prepare_and_extract_spectrum(coords, z_guess, rad)
+    def pick_target(self, coords, z_guess, rad, plot=True, foreground=0, cluster_member=0, lensed=0):
+        id, radec, obj_spectrum, rest_spectrum = self._prepare_and_extract_spectrum(coords, z_guess, rad, foreground, cluster_member, lensed)
         angdisp = np.sqrt((radec[0]-self.centre.ra.deg)**2+(radec[1]-self.centre.dec.deg)**2)
         
         if plot:
@@ -807,8 +814,19 @@ class museCube:
         for i in range(len(all_coords)):
             csv_coords = all_coords[i]
             z_estimate = (coord_table['OIII_est'][i]/5006.84) -1
-            # print(f'{z_estimate}')
-            self.pick_target(csv_coords, z_estimate, 0.7)
+            
+            description = ''
+            if 'Description' in coord_table.colnames:
+                description = coord_table['Description'][i].lower()
+
+            is_foreground = 1 if 'foreground' in description else 0
+            is_cluster_member = 1 if 'cluster member' in description else 0
+            is_lensed = 1 if 'lensed' in description else 0
+
+            self.pick_target(csv_coords, z_estimate, 0.7,
+                             foreground=is_foreground, 
+                             cluster_member=is_cluster_member, 
+                             lensed=is_lensed)
         self.stack_and_fit_spectra(plot=True)
         self.write_table()
 
