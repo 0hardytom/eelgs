@@ -26,6 +26,9 @@ logging.getLogger('mpdaf').setLevel(logging.WARNING)
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
+from astropy.table import join
+from astroquery.sdss import SDSS
+
 pf.housestyle_rcparams()
 
 class museCube:
