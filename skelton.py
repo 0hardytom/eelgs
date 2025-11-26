@@ -177,3 +177,103 @@ def add_oiii_fluxes(maintab, linetab):
             merged_table[col] = merged_table[col].filled(np.nan)
 
     return merged_table
+
+def estimate_continuum(line_wavelength, phot_fluxes, phot_wavelengths):
+    """
+    Estimates continuum flux at a given wavelength by interpolating
+    broadband photometry in log-log space.
+
+    Parameters
+    ----------
+    line_wavelength : float
+        The wavelength (in Angstroms) at which to estimate the continuum.
+    phot_fluxes : list or np.ndarray
+        An array of the photometric flux values.
+    phot_wavelengths : list or np.ndarray
+        An array of the effective wavelengths of the photometric bands,
+        in the same order as the fluxes.
+
+    Returns
+    -------
+    float
+        The estimated continuum flux at `line_wavelength`. Returns np.nan
+        if the wavelength is outside the range of the photometry or if
+        interpolation is not possible.
+    """
+    valid_points = sorted([
+        (w, f) for w, f in zip(phot_wavelengths, phot_fluxes)
+        if w is not None and f is not None and np.isfinite(f) and f > 0
+    ])
+
+    if len(valid_points) < 2:
+        return np.nan
+
+    sorted_wavs, sorted_fluxes = zip(*valid_points)
+    sorted_wavs = np.array(sorted_wavs)
+    sorted_fluxes = np.array(sorted_fluxes)
+
+    # Check if the line is outside the photometric range
+    if line_wavelength < sorted_wavs[0] or line_wavelength > sorted_wavs[-1]:
+        return np.nan
+
+    # Find the two photometric points that bracket the line
+    idx = np.searchsorted(sorted_wavs, line_wavelength)
+
+    # Handle edge cases
+    if idx == 0 or idx == len(sorted_wavs):
+        # This case should be caught by the range check above, but as a safeguard:
+        return np.nan
+    if sorted_wavs[idx] == line_wavelength:
+        return sorted_fluxes[idx]
+    
+    # The bracketing points are at idx-1 and idx
+    wav1, flux1 = sorted_wavs[idx - 1], sorted_fluxes[idx - 1]
+    wav2, flux2 = sorted_wavs[idx], sorted_fluxes[idx]
+
+    # Perform linear interpolation in log-log space
+    log_wav1, log_flux1 = np.log(wav1), np.log(flux1)
+    log_wav2, log_flux2 = np.log(wav2), np.log(flux2)
+    log_line_wav = np.log(line_wavelength)
+
+    m = (log_flux2 - log_flux1) / (log_wav2 - log_wav1)
+    log_line_flux = log_flux1 + m * (log_line_wav - log_wav1)
+
+    return np.exp(log_line_flux)
+
+def calculate_continuum_for_table(table, line_wavelength_col, flux_cols, flux_wavelengths):
+    """
+    Applies the estimate_continuum function to an entire Astropy table.
+
+    Parameters
+    ----------
+    table : astropy.table.Table
+        The table containing the data.
+    line_wavelength_col : str
+        The name of the column containing the line wavelengths.
+    flux_cols : list of str
+        A list of column names for the photometric fluxes.
+    flux_wavelengths : list of float
+        A list of the effective wavelengths for each flux column, in the
+        same order.
+
+    Returns
+    -------
+    list
+        A list of the calculated continuum fluxes for each row in the table.
+    """
+    continuum_values = []
+    for row in table:
+        line_wav = row[line_wavelength_col]
+        phot_fluxes = [row[col] for col in flux_cols]
+        
+        # Handle cases where the line wavelength itself is invalid
+        if not np.isfinite(line_wav):
+            continuum_values.append(np.nan)
+            continue
+
+        continuum = estimate_continuum(line_wav, phot_fluxes, flux_wavelengths)
+        continuum_values.append(continuum)
+        
+    return continuum_values
+
+
