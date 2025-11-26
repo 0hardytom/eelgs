@@ -1,83 +1,26 @@
 import numpy as np
 
 def kewley01(log_nii_ha):
-    """
-    Calculates the theoretical "maximum starburst" line from Kewley et al. (2001).
-    
-    This demarcation line separates AGN from star-forming/composite galaxies. 
-    Points above this line are generally classified as AGN.
-
-    Parameters
-    ----------
-    log_nii_ha : float or array-like
-        The log10 of the [N II]/H-alpha flux ratio.
-
-    Returns
-    -------
-    float or array-like
-        The corresponding log10([O III]/H-beta) value for the demarcation line.
-    """
     return 0.61 / (log_nii_ha - 0.47) + 1.19
 
 def kauffmann03(log_nii_ha):
-    """
-    Calculates the empirical demarcation line from Kauffmann et al. (2003).
-
-    This line separates purely star-forming galaxies from composite galaxies.
-    Points below this line are classified as star-forming.
-
-    Parameters
-    ----------
-    log_nii_ha : float or array-like
-        The log10 of the [N II]/H-alpha flux ratio.
-
-    Returns
-    -------
-    float or array-like
-        The corresponding log10([O III]/H-beta) value for the demarcation line.
-    """
     return 0.61 / (log_nii_ha - 0.05) + 1.3
 
 def classify_bpt(log_nii_ha, log_oiii_hb):
-    """
-    Classifies galaxies into Star-forming, Composite, and AGN based on BPT diagram position.
-
-    Parameters
-    ----------
-    log_nii_ha : array-like
-        The log10 of the [N II]/H-alpha flux ratio (x-axis values).
-    log_oiii_hb : array-like
-        The log10 of the [O III]/H-beta flux ratio (y-axis values).
-
-    Returns
-    -------
-    dict
-        A dictionary containing boolean masks for each classification:
-        'starburst': Star-forming galaxies
-        'transition': Composite/transition objects
-        'agn': Active Galactic Nuclei
-    """
-    # Calculate the y-values of the demarcation lines for each galaxy's x-value
     y_kauffmann = kauffmann03(log_nii_ha)
     y_kewley = kewley01(log_nii_ha)
 
     # --- Classification Conditions ---
-    # 1. Below the Kauffmann line is Star-forming ('starburst')
-    #    (only defined for log_nii_ha < 0.05)
     is_starburst = (log_oiii_hb < y_kauffmann) & (log_nii_ha < 0.05)
-
-    # 2. Above the Kewley line is AGN
-    #    (also includes objects with log_nii_ha > 0.47, where the line is not defined)
     is_agn = (log_oiii_hb > y_kewley) | (log_nii_ha >= 0.47)
-
-    # 3. Everything in between is a Composite/Transition object
-    #    We find this by selecting objects that are NOT starburst and NOT AGN.
-    is_transition = (~is_starburst) & (~is_agn)
+    is_real = (np.isfinite(log_nii_ha)&np.isfinite(log_oiii_hb))
+    is_transition = (~is_starburst) & (~is_agn) & (is_real)
 
     return {
         'starburst': is_starburst,
         'transition': is_transition,
-        'agn': is_agn
+        'agn': is_agn,
+        # 'unclassified': ~is_real
     }
 
 
