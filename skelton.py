@@ -1,5 +1,6 @@
 from astropy.table import Table, join
 from astroquery.vizier import VizieR
+import numpy as np
 
 # --- 1. Your Input Data ---
 # Let's assume you have your redshift catalog in an Astropy Table.
@@ -76,3 +77,103 @@ try:
 except Exception as e:
     print(f"An error occurred during the VizieR query: {e}")
     print("Please check your internet connection, the catalog identifier, and the SKELTON_IDs.")
+
+def smooth_step(ax, x, y, **kwargs):
+    """
+    Plots a smooth, interpolated curve on a given matplotlib axes object,
+    analogous to a smoothed version of ax.step().
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes object to plot on.
+    x : array-like
+        The x-coordinates of the data points.
+    y : array-like
+        The y-coordinates of the data points.
+    **kwargs : dict
+        Additional keyword arguments to be passed to `ax.plot()`.
+        Examples: 'color', 'linestyle', 'linewidth', 'label'.
+
+    Returns
+    -------
+    list
+        A list of the Line2D objects added to the axes.
+    """
+    import numpy as np
+    from scipy.interpolate import make_interp_spline
+
+    # Create a new, denser set of x-values for the smooth curve
+    x_smooth = np.linspace(np.min(x), np.max(x), 300)
+
+    # Create the spline interpolation function (cubic is a good default)
+    spl = make_interp_spline(x, y, k=3)
+    y_smooth = spl(x_smooth)
+
+    # Plot the smoothed data on the provided axes
+    line = ax.plot(x_smooth, y_smooth, **kwargs)
+    
+    return line
+
+def add_oiii_fluxes(maintab, linetab):
+    """
+    Adds OIII 5007 and 4959 fluxes, errors, and centroids to a main table.
+
+    This function takes a main catalog table and a line flux table and adds
+    columns for the OIII 5007 and 4959 fluxes, errors, and observed
+    wavelengths (centroids). The cross-matching is done using the 'UNIQUE_ID'
+    column, which must be present in both tables.
+
+    Parameters
+    ----------
+    maintab : astropy.table.Table
+        The main table with general object properties. Must contain 'UNIQUE_ID'.
+    linetab : astropy.table.Table
+        The table with individual line measurements. Must contain 'UNIQUE_ID',
+        'IDENT', 'F_3KRON', 'F_3KRON_ERR', and 'LAM_OBS'.
+
+    Returns
+    -------
+    astropy.table.Table
+        A new table containing the columns from maintab plus the six new
+        OIII-related columns:
+        - 'oiii5007_flux'
+        - 'oiii5007_flux_err'
+        - 'oiii5007_centroid'
+        - 'oiii4959_flux'
+        - 'oiii4959_flux_err'
+        - 'oiii4959_centroid'
+    """
+    # Ensure UNIQUE_ID is a common key
+    if 'UNIQUE_ID' not in maintab.colnames or 'UNIQUE_ID' not in linetab.colnames:
+        raise ValueError("Both tables must contain a 'UNIQUE_ID' column for cross-matching.")
+
+    # --- Process OIII 5007 (O3_2) ---
+    oiii_5007_lines = linetab[linetab['IDENT'] == 'O3_2']
+    oiii_5007_to_join = oiii_5007_lines[['UNIQUE_ID', 'F_3KRON', 'F_3KRON_ERR', 'LAM_OBS']]
+    oiii_5007_to_join.rename_column('F_3KRON', 'oiii5007_flux')
+    oiii_5007_to_join.rename_column('F_3KRON_ERR', 'oiii5007_flux_err')
+    oiii_5007_to_join.rename_column('LAM_OBS', 'oiii5007_centroid')
+
+    # --- Process OIII 4959 (O3_1) ---
+    oiii_4959_lines = linetab[linetab['IDENT'] == 'O3_1']
+    oiii_4959_to_join = oiii_4959_lines[['UNIQUE_ID', 'F_3KRON', 'F_3KRON_ERR', 'LAM_OBS']]
+    oiii_4959_to_join.rename_column('F_3KRON', 'oiii4959_flux')
+    oiii_4959_to_join.rename_column('F_3KRON_ERR', 'oiii4959_flux_err')
+    oiii_4959_to_join.rename_column('LAM_OBS', 'oiii4959_centroid')
+
+    # --- Join the tables ---
+    # Start with the main table
+    merged_table = join(maintab, oiii_5007_to_join, keys='UNIQUE_ID', join_type='left')
+    merged_table = join(merged_table, oiii_4959_to_join, keys='UNIQUE_ID', join_type='left')
+
+    # --- Fill missing values ---
+    # After a left join, non-matches will be represented by masked values.
+    # It's good practice to fill these with a sensible default, like 0 or NaN.
+    # For fluxes and errors, NaN is often a good choice.
+    for col in ['oiii5007_flux', 'oiii5007_flux_err', 'oiii5007_centroid',
+                'oiii4959_flux', 'oiii4959_flux_err', 'oiii4959_centroid']:
+        if col in merged_table.colnames and hasattr(merged_table[col], 'filled'):
+            merged_table[col] = merged_table[col].filled(np.nan)
+
+    return merged_table
