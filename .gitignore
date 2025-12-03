@@ -99,3 +99,6 @@ wandb/
 
 notebooks/week5-6/dat
 notebooks/**/dat
+
+dat/
+figs/
