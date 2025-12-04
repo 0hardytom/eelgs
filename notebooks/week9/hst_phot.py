@@ -13,12 +13,14 @@ from photutils.aperture import CircularAperture, aperture_photometry
 
 
 def query_hst_imaging(ra, dec, radius=0.1, filters=['F435W', 'F606W', 'F814W',
-                                                    'F105W', 'F125W', 'F160W']):
+                                                    'F105W', 'F125W', 'F160W'],
+                                                    return_orig = False):
     """
     Queries the MAST archive for HST imaging data in specific filters.
     """
     coords = SkyCoord(ra, dec, unit="deg")
     obs_table = Observations.query_region(coords, radius=radius)
+    returnorig = obs_table if return_orig else None
     
     # Filter for HST imaging data and specified filters
     hst_imaging = obs_table[
@@ -38,7 +40,7 @@ def query_hst_imaging(ra, dec, radius=0.1, filters=['F435W', 'F606W', 'F814W',
             unique_filters[row['filters']] = True
             indices_to_keep.append(i)
     
-    return hst_imaging[indices_to_keep]
+    return hst_imaging[indices_to_keep], returnorig
 
 def download_hst_images(obs_table, data_dir):
     """
