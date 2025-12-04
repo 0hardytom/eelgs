@@ -12,7 +12,8 @@ from astropy.wcs import WCS
 from photutils.aperture import CircularAperture, aperture_photometry
 
 
-def query_hst_imaging(ra, dec, radius=0.1, filters=['F475W', 'F625W', 'F814W']):
+def query_hst_imaging(ra, dec, radius=0.1, filters=['F435W', 'F606W', 'F814W',
+                                                    'F105W', 'F125W', 'F160W']):
     """
     Queries the MAST archive for HST imaging data in specific filters.
     """
