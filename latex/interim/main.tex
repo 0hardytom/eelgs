@@ -1,0 +1,193 @@
+% mnras_template.tex 
+%
+% LaTeX template for creating an MNRAS paper
+%
+% v3.3 released April 2024
+% (version numbers match those of mnras.cls)
+%
+% Copyright (C) Royal Astronomical Society 2015
+% Authors:
+% Keith T. Smith (Royal Astronomical Society)
+
+% Change log
+%
+% v3.3 April 2024
+%   Updated \pubyear to print the current year automatically
+% v3.2 July 2023
+%	Updated guidance on use of amssymb package
+% v3.0 May 2015
+%    Renamed to match the new package name
+%    Version number matches mnras.cls
+%    A few minor tweaks to wording
+% v1.0 September 2013
+%    Beta testing only - never publicly released
+%    First version: a simple (ish) template for creating an MNRAS paper
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Basic setup. Most papers should leave these options alone.
+\documentclass[fleqn,usenatbib]{mnras}
+
+% MNRAS is set in Times font. If you don't have this installed (most LaTeX
+% installations will be fine) or prefer the old Computer Modern fonts, comment
+% out the following line
+\usepackage{newtxtext,newtxmath}
+% Depending on your LaTeX fonts installation, you might get better results with one of these:
+%\usepackage{mathptmx}
+%\usepackage{txfonts}
+
+% Use vector fonts, so it zooms properly in on-screen viewing software
+% Don't change these lines unless you know what you are doing
+\usepackage[T1]{fontenc}
+
+% Allow "Thomas van Noord" and "Simon de Laguarde" and alike to be sorted by "N" and "L" etc. in the bibliography.
+% Write the name in the bibliography as "\VAN{Noord}{Van}{van} Noord, Thomas"
+\DeclareRobustCommand{\VAN}[3]{#2}
+\let\VANthebibliography\thebibliography
+\def\thebibliography{\DeclareRobustCommand{\VAN}[3]{##3}\VANthebibliography}
+
+
+%%%%% AUTHORS - PLACE YOUR OWN PACKAGES HERE %%%%%
+
+% Only include extra packages if you really need them. Avoid using amssymb if newtxmath is enabled, as these packages can cause conflicts. newtxmatch covers the same math symbols while producing a consistent Times New Roman font. Common packages are:
+\usepackage{graphicx}	% Including figure files
+\usepackage{amsmath}	% Advanced maths commands
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%% AUTHORS - PLACE YOUR OWN COMMANDS HERE %%%%%
+
+% Please keep new commands to a minimum, and use \newcommand not \def to avoid
+% overwriting existing commands. Example:
+%\newcommand{\pcm}{\,cm$^{-2}$}	% per cm-squared
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%% TITLE PAGE %%%%%%%%%%%%%%%%%%%
+
+% Title of the paper, and the short title which is used in the headers.
+% Keep the title short and informative.
+\title[Finding EELGS with VLT-MUSE]{Identifying Extreme [OIII] $\lambda5007$ Emission-Line Galaxies in the Fields of Massive Clusters with VLT-MUSE }
+
+% The list of authors, and the short list which is used in the headers.
+% If you need two or more lines of authors, add an extra line using \newauthor
+\author[T. G. Hardy et. al.]{
+Tom G. Hardy,$^{1}$\thanks{E-mail: thomas.hardy@durham.ac.uk}
+Alastair C. Edge,$^{1}$
+\\
+% List of institutions
+$^{1}$Centre for Extragalactic Astronomy, Department of Physics, Durham University, South Road, Durham DH1 3LE, UK\\
+}
+
+% These dates will be filled out by the publisher
+\date{Accepted XXX. Received YYY; in original form ZZZ}
+
+% Prints the current year, for the copyright statements etc. To achieve a fixed year, replace the expression with a number. 
+\pubyear{\the\year{}}
+
+% Don't change these lines
+\begin{document}
+\label{firstpage}
+\pagerange{\pageref{firstpage}--\pageref{lastpage}}
+\maketitle
+
+% Abstract of the paper
+\begin{abstract}
+The increasing number of JWST-JADES Ly$\alpha$ star-forming galaxy candidates, considered to be those driving early cosmic reionization, are limited to low-resolution rest-frame UV and visible observations; their dwarf [OIII]-extreme line emission (EELG) counterparts in the nearby Universe therefore provide important spectral analogues. These EELGs, however, present challenges to photometric selection due to their lack of stellar continuum: wide-band photometric surveys are therefore challenged by biases in redshift distributions. We instead present Integral Field (IFU) Spectroscopy as a direct selection method with VLT-MUSE, identifying a sample of [COMPLETE] EELGs in the fields of massive clusters. We present a source extraction pipeline and spectral fitting to infer the astrophysical properties of these galaxies, including obtaining metallicities and using legacy HST imaging to SED fit our pea candidates and infer their masses and star-forming rates. We further investigate the population distributions of these galaxies and compare to the MUSE flat-field, and new southern-sky populations of these galaxies.
+\end{abstract}
+
+% Select between one and six entries from the list of approved keywords.
+% Don't make up new ones.
+\begin{keywords}
+galaxies:starburst -- galaxies:dwarf 
+\end{keywords}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%% BODY OF PAPER %%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+One of the key ongoing questions in extragalactic astronomy involves understanding the process under which the intergalactic medium transitioned from opaque neutral hydrogen to the current transparent, ionised state: the epoch of reionization. It is accepted \citep{brunker_2020} that the ionising  radiation of this period $z>6$ was comprised of that from star forming galaxies \citep{robertson2020,tacchella_2025} and active galactic nuclei \citep{2004ApJ...604..484M, Madau2014}; with the increasing number of highly star-forming galaxy candidates at redshifts above $z=10$ discovered by the James Webb Space Telescope (JWST) \citep{Rhoads, hainline_2023} it has become valuable to study their nearby counterparts, from which a more detailed picture can be built of their spectra. 
+
+It is believed the strongest contribution to ionizing radiation by SFGs is from extreme emission line galaxies (EELGs), a class of dwarf galaxies dominated by recent intense starburst, forming massive hot stars with UV-dominant emission \citep{tang2023, davis2024}. This strongly ionises the surrounding interstellar medium, causing fluorescence at specific atomic transitions, a process initially established by \cite{menzel}. These extreme lines dominate the galaxies’ spectra, given the low-mass galaxies lack large stellar populations to contribute to the spectral continuum, and therefore give the observed atomic transition lines extreme equivalent widths (EWs; the fraction of integrated flux on a specific emission line to the continuum level); this process of starburst naturally produces large amounts of Lyman continuum (UV) radiation from the rapidly growing population of young, massive hot stars \citep{madau1999, gigure2008}. It should be noted that this theory of reionisation is complicated by the large neutral hydrogen column densities surrounding star forming nebulae in these young galaxies; \cite{izotov_2018} and \cite{jaskotoey} highlight that for low-mass galaxies a fully-ionized ISM or one with optically thin tunnels allow for the escape of UV radiation into the intergalactic medium. Recent observations of $z>6$ galaxies have established strong correlation between [OIII]-H$\alpha$ emission  and Lyman Continuum (UV) escape \citep{tang2023} (established initially at low $z$ by \cite{flury2022}), and similarly with UV luminosity \citep{endsley2024}: in contrast with earlier \citep{hackman1995} beliefs about starburst, deep-field astronomy has proven EELGs as direct probes of the (re-)ionising IGM. 
+
+These EELGs are distinguished by their dominant emission features, with the primary diagnostic depending on the galaxy's redshift. For star-forming galaxies in the early universe these are rest-frame ultraviolet features: a prominent Lyman alpha emission line or break leads to ‘Ly-$\alpha$-’ or ‘Ly-break-’ galaxy classification \citep{Tacchella_2023_2}. Conversely, EELGs in the $z < 1$ universe are discerned by the strength of their [OIII] emission, a feature that is intrinsically visible and dominates their observed optical spectra: those nearby were discovered as a class by GalaxyZoo \citep{cardamone} identification from the Sloan Digital Sky Survey (SDSS), earning the name ‘Green Peas’ (GPs) due to their unresolved, [OIII]-extreme imaging causing them to appear green when artificially coloured. 
+
+As JWST-JADES has recently began to discover more SFGs deep into the $z>10$ EoR \citep{hainline_2023}, these GPs have become popular analogues of their high-redshift counterparts (e.g. \cite{brunker_2020, izotov_2018, Rhoads}): they too are low metallicity \citep{jiang}, high specific star forming rate (sSFR) \citep{brunker_2020, liu2022}, and of which a significant number (~50$\%$) show high Ly$\alpha$ escape fraction \cite{jaskotoey,yang_2017}. Detection of Lyman continuum leakage is rare at local redshifts ($z<<1$) and most of these local continuum-leaking galaxies are GPs \citep{yang_2016, izotov_2016}; those of the highest escape fraction are all Green Peas. This population of galaxies has therefore become a useful analogue of the SFG reionisation mechanism, and has therefore seen the recent development of large Pea catalogues \citep{samonski2025}. More recently, these galaxies are often further classified into those with additional strong H$\alpha$ emission on $z<0.36$ \citep{izotov2011} – ‘Purple Grapes’ – and extremely low-mass, very local $z<0.1$ ‘Blueberry’ Galaxies \citep{yang2017,liu2022}. For the purposes of this study we use the generalised Pea description; that of unresolved dwarfs with EW[OIII]$>100\,\AA$ in the nearby $z<1$ universe.
+
+We identify [OIII]-extreme (‘Pea-like’) galaxies from massive cluster observations by the Multi-Unit Spectroscopic Explorer (MUSE) on the Very Large Telescope \citep{bacon2010}. This optical Integral Field Unit (IFU) instrument has a 1-arcminute$^2$ field of view on $[4650, 9300]$ nm; this observation band makes the instrument an ideal choice for [OIII] selection on $z<0.86$. These observations of galaxy clusters, the most massive gravitationally bound objects in the observable Universe, are part of a larger VLT-MUSE survey of cluster cores comparing strong lensing mass models to physical observations \citep{jauzac,jauzac2021}. This task is suited ideally to VLT-MUSE, which can detect galaxies to $z=6$ \citep{bacon2015}, and in this investigation allows for the identification of populations of foreground- cluster member- and background galaxies. Notably, because of their high mass, these clusters magnify background sources through gravitational lensing; this has become a powerful tool to map dark matter distributions in clusters \citep{massey2010}, and can be used to magnify faint background galaxies at high $z$ (prior to JWST this was the leading strategy for direct high-z detection using Hubble; see \cite{livermore2017, bouwens2018,kawamata2018} for prominent examples).
+
+Pea-like objects are often difficult to find uniformly with a traditional source finding procedure: their lack of stellar continuum often renders them invisible in photometric bands that do not align with specific emission lines and therefore creates biases in the populations scheduled for photometric follow-up. Recent efforts to instead use deeper spectroscopy and deeper imagine provide opportunities to establish estimates of the GP volume density \citep{amorin2015, brunker_2020, miller2024}, but are limited in census area, while SED-fitting-led wide-area methods instead are limited by lack of spectroscopic follow-up \cite{yang2017, samonski2025}. 
+
+In this paper we pose integral field spectroscopy (IFS) as a possible solution to these challenges. The technique has seen limited use before on individual GP observation \citep{bosch2019, polonio2023} although it lacks any GP survey application. With the nearby advent of ELT-HARMONI, MUSE’s next-generation successor on the Extremely Large Telescope \citep{harmoni2021}, we showcase IFS as a key tool for Extreme Emission identification. From our observations we identify a uniform sample of EELGs, investigating their physical properties and comparing our populations with KISS and SDSS populations \citep{brunker_2020,samonski2025, jiang}. We further pose the identified sample in this paper as a useful calibration population for the large number pea-like objects detected by the Dark Energy Spectroscopic Instrument’s \citep{desi2016} Survey (DESI).
+
+\textbf{Section~\ref{sec:obs}: Observations} outlines observational data and the source extraction pipeline used on candidate peas, including using corresponding HST photometry and a wide-field survey for population comparisons. We then outline population selection including AGN contaminant rejection and line ratio tools to identify EELGs from the parent sample of candidates in \textbf{Section~\ref{sec:pop}: EELG Identification}. From these identified peas, we investigate astrophysical properties in \textbf{Section~\ref{sec:ast}: EELG Identification}, including investigations on SFR, mass and metallicity. Finally, we discuss extremes of this population and survey limits in comparison to contemporary work in \textbf{Section~\ref{sec:dis}: Discussion}, concluding and outlining future work, including links to ELT-HARMONI in \textbf{Section~\ref{sec:conc}: Conclusion}.
+
+Distance-dependent quantities in this paper assume flat $\Lambda$CDM cosmology consistent with \cite{planck2020}; $H_0=66.66\;km\,s^{-1}$ and $\Omega_m=0.3097$.
+
+\section{Observations \& Data Reduction}
+\label{sec:obs}
+\subsection{VLT-MUSE and MUSE-WIDE}
+\subsection{Hubble Photometry}
+\section{EELG Identification}
+\label{sec:pop}
+\section{Physical Properties}
+\label{sec:ast}
+\subsection{Metallicity \& SFR}
+\subsection{Population Properties}
+\section{Discussion}
+\label{sec:dis}
+\section{Conclusion}
+\label{sec:conc}
+
+
+
+
+\section{Conclusions}
+
+
+\section*{Acknowledgements}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \section*{Data Availability}
+
+ 
+% The inclusion of a Data Availability Statement is a requirement for articles published in MNRAS. Data Availability Statements provide a standardised format for readers to understand the availability of data underlying the research results described in the article. The statement may refer to original data generated in the course of the study or to third-party data analysed in the article. The statement should describe and provide means of access, where possible, by linking to the data or providing the required accession numbers for the relevant databases or DOIs.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%% REFERENCES %%%%%%%%%%%%%%%%%%
+
+% The best way to enter references is to use BibTeX:
+
+\bibliographystyle{mnras}
+\bibliography{example} % if your bibtex file is called example.bib
+
+
+% Alternatively you could enter them by hand, like this:
+% This method is tedious and prone to error if you have lots of references
+%\begin{thebibliography}{99}
+%\bibitem[\protect\citeauthoryear{Author}{2012}]{Author2012}
+%Author A.~N., 2013, Journal of Improbable Astronomy, 1, 1
+%\bibitem[\protect\citeauthoryear{Others}{2013}]{Others2013}
+%Others S., 2012, Journal of Interesting Stuff, 17, 198
+%\end{thebibliography}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%% APPENDICES %%%%%%%%%%%%%%%%%%%%%
+
+\appendix
+
+\section{BLANK}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Don't change these lines
+\bsp	% typesetting comment
+\label{lastpage}
+\end{document}
+
+% End of mnras_template.tex
