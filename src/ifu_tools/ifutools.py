@@ -836,8 +836,7 @@ class museCube:
         self.ex_table['zcluster'] = zcl
         self.ex_table['name'] = self.ex_table['name'].astype(str)
         self.ex_table['name'] = self.title
-
-
+        
 class Candidates:
     def __init__(self, file_path: str = 'candidates.list'):
         self.file_path = file_path
