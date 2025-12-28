@@ -503,7 +503,7 @@ class museCube:
              return create_mock_fit(target_3726), create_mock_fit(target_3729)
 
         # Astropy models
-        g3726 = models.Gaussian1D(amplitude=peak_guess, mean=target_3726, stddev=1.0, bounds={'mean': (target_3726-5, target_3726+5), 'amplitude': (0, 2*peak_guess)})
+        g3726 = models.Gaussian1D(amplitude=peak_guess, mean=target_3726, stddev=1.0, bounds={'mean': (target_3726-5, target_3726+5), 'amplitude': (0, 2*peak_guess), 'stddev': (0.4, 8.5)})
         g3729 = models.Gaussian1D(amplitude=peak_guess, mean=target_3729, stddev=1.0, bounds={'mean': (target_3729-5, target_3729+5), 'amplitude': (0, 2*peak_guess)})
         continuum = models.Const1D(amplitude=cont_guess)
 
@@ -777,6 +777,8 @@ class museCube:
         id = 'STACK_master'
         self._dirmanagement(id=id)
         
+        stacked_spectrum.write(f'spec/{self.title}/{id}_rest_spec.fits')
+
         # Prepare table row for the stacked spectrum
         if id in self.ex_table['object_id']:
             self.ex_table.remove_row(np.where(self.ex_table['object_id'] == id)[0][0])
