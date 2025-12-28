@@ -4,15 +4,17 @@ import pandas as pd
 import numpy as np
 import warnings
 
+import pyvo as vo
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.wcs.utils import proj_plane_pixel_scales, proj_plane_pixel_area
 from astropy import units as u
 from astropy.utils.exceptions import AstropyWarning
 from astropy.table import Table
 
 from astroquery.mast import Observations
-from astroquery.irsa import Irsa
+from astroquery.ipac.irsa import Irsa
 
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
 from photutils.background import LocalBackground
@@ -92,29 +94,51 @@ def download_hst_image(coord, band_info, download_dir):
 
 
 def download_spitzer_image(coord, band_info, download_dir):
-    """Queries IRSA and downloads the first available Spitzer image."""
+    """Queries IRSA using SIA and downloads the first available Spitzer image."""
+    seip_service2= vo.dal.sia2.SIA2Service('https://irsa.ipac.caltech.edu/SIA')
     instrument = band_info[1]
     channel = band_info[0]
     print(f"  Querying IRSA for Spitzer/{instrument} Ch{channel}...")
     try:
-        # Search within the Spitzer Heritage Archive (SHA)
-        table = Irsa.query_region(coord, catalog='spitzer_sha', spatial='Cone', radius=5 * u.arcmin)
-        
-        # Filter for the correct instrument, channel, and data type (Level 2 mosaic)
-        mask = (
-            (table['instrument'] == instrument) &
-            (table['ch'] == int(channel)) &
-            (table['prodtype'] == 'pbcd') # Post-Basic Calibrated Data (Level 2)
-        )
-        filtered_table = table[mask]
+        # Use the Simple Image Access (SIA) protocol to find images
+        # The SIA service requires the radius to be in the 'pos' tuple
+        radius_deg = (5 * u.arcmin).to(u.deg).value
+        pos_with_radius = (coord,radius_deg)
 
-        if not filtered_table:
+        # table = Irsa.query_sia( # DOESNT WORK FOR LEGACY IMAGING
+        #     table="spitzer_sha",
+        #     pos=pos_with_radius,
+        #     collection='spitzer_sha_irac' if instrument == 'IRAC' else 'spitzer_sha_mips'
+        # )
+        table = seip_service2.search(pos=(coord.ra.deg, coord.dec.deg, radius_deg),
+                                collection='spitzer_sha')
+
+        if not table:
             print(f"  No suitable Spitzer/{instrument} Ch{channel} observations found.")
             return None
 
+        # Filter for the correct channel and data type (Level 2 mosaic)
+        # SIA table columns are different, often using byte strings
+        mask = [
+            (str(row['instrument_name']) == instrument) and
+            (str(row['energy_bandpassname']) == channel) and
+            (row['product_level'] == '2') # Post-Basic Calibrated Data (Level 2)
+            for row in table
+        ]
+        filtered_table = table[mask]
+
+        if not filtered_table:
+            print(f"  No suitable Level 2 Spitzer/{instrument} Ch{channel} observations found.")
+            return None
+
         # Get the download URL for the mosaic FITS file
-        url = filtered_table[0]['accessUrl']
+        url = filtered_table[0]['access_url']
         download_path = os.path.join(download_dir, f"spitzer_{instrument}_{channel}.fits")
+        
+        # astroquery returns URLs as bytes, so decode them
+        if isinstance(url, bytes):
+            url = url.decode('utf-8')
+            
         Irsa.download_file(url, download_path)
         return download_path
 
@@ -142,13 +166,18 @@ def perform_photometry(image_path, coord):
             position = (px, py)
 
             # Define apertures
-            aperture = CircularAperture(position, r=APERTURE_RADIUS_ARCSEC / wcs.proj_plane_pixel_scales()[0].to(u.arcsec / u.pix).value)
-            annulus = CircularAnnulus(position, 
-                                      r_in=SKY_ANNULUS_INNER_ARCSEC / wcs.proj_plane_pixel_scales()[0].to(u.arcsec / u.pix).value,
-                                      r_out=SKY_ANNULUS_OUTER_ARCSEC / wcs.proj_plane_pixel_scales()[0].to(u.arcsec / u.pix).value)
-            
+            pixel_scale_deg_per_pix = proj_plane_pixel_scales(wcs)[0]
+            global pixel_scale_arcsec_per_pix
+            pixel_scale_arcsec_per_pix = pixel_scale_deg_per_pix * 3600  # Convert deg to arcsec
+            aperture = CircularAperture(position, r=APERTURE_RADIUS_ARCSEC / pixel_scale_arcsec_per_pix)
+            # annulus = CircularAnnulus(position,
+                                        # r_in=SKY_ANNULUS_INNER_ARCSEC / pixel_scale_arcsec_per_pix,
+                                        # r_out=SKY_ANNULUS_OUTER_ARCSEC / pixel_scale_arcsec_per_pix)
+            local_background_annulus = LocalBackground(SKY_ANNULUS_INNER_ARCSEC / pixel_scale_arcsec_per_pix,
+                                                    SKY_ANNULUS_OUTER_ARCSEC / pixel_scale_arcsec_per_pix)
+            local_background_estimate = local_background_annulus(data,*position)
             # Perform background-subtracted photometry
-            bkg_phot = aperture_photometry(data - LocalBackground(annulus, data).background, aperture, wcs=wcs)
+            bkg_phot = aperture_photometry(data - local_background_estimate, aperture, wcs=wcs)
             
             # Unit conversion to microjanskys (uJy)
             flux_ujy = -999.0
@@ -159,7 +188,7 @@ def perform_photometry(image_path, coord):
                 flux_ujy = flux_density.value
             elif 'FLUXMJY' in hdul[sci_ext].header: # Spitzer (MJy/sr)
                 flux_per_pixel_mjy = hdul[sci_ext].header['FLUXMJY']
-                pixel_area_sr = wcs.proj_plane_pixel_area().to(u.sr).value
+                pixel_area_sr = proj_plane_pixel_area(wcs).to(u.sr).value
                 flux_density_mjy = bkg_phot['aperture_sum'][0] * flux_per_pixel_mjy * pixel_area_sr
                 flux_ujy = (flux_density_mjy * u.MJy).to(u.uJy).value
 
@@ -199,11 +228,11 @@ def main():
     print(f"Starting photometry for {len(df_in)} galaxies...")
 
     for index, row in df_in.iterrows():
-        galaxy_id = row['ID']
-        coord = SkyCoord(row['RA'], row['DEC'], unit=(u.deg, u.deg))
+        galaxy_id = row['object_id']
+        coord = SkyCoord(row['ra'], row['dec'], unit=(u.deg, u.deg))
         print(f"\nProcessing Galaxy: {galaxy_id} ({coord.to_string('hmsdms')})")
 
-        galaxy_photometry = {'ID': galaxy_id, 'RA': row['RA'], 'DEC': row['DEC']}
+        galaxy_photometry = {'object_id': galaxy_id, 'ra': row['ra'], 'dec': row['dec']}
         galaxy_data_dir = os.path.join(DATA_DIR, str(galaxy_id))
         os.makedirs(galaxy_data_dir, exist_ok=True)
 

@@ -96,7 +96,7 @@ wandb/
 *.jpg
 *.jpeg
 *.gif
-
+*.fits
 notebooks/mich/week5-6/dat
 notebooks/mich/**/dat
 
