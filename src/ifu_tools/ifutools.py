@@ -58,6 +58,10 @@ class museCube:
             os.mkdir(f'figs/{self.title}/{id}/balmer')
         if not os.path.isdir(f'dat'):
             os.mkdir(f'dat')
+        if not os.path.isdir(f'spec/{self.title}'):
+            if not os.path.isdir('spec'): 
+                os.mkdir('spec')  
+            os.mkdir(f'spec/{self.title}')    
         return True
 
     def _get_title(self):
@@ -456,6 +460,9 @@ class museCube:
         
         rest_spectrum = self.deredshift_spectrum(obj_spectrum, obj_z)
         self.rest_spectra[id] = rest_spectrum
+
+        obj_spectrum.write(f'spec/{self.title}/{id}_obs_spec.fits')
+        rest_spectrum.write(f'spec/{self.title}/{id}_rest_spec.fits')   
         
         # Prepare initial row for the table
         row_data = {
@@ -873,7 +880,7 @@ class Candidates:
         if current_key: # Save the last block
             self._data[current_key]['lines'] = block_lines
         
-        self._keys_corrected = ['../../cubes/'+(a.replace('-','m')).replace('+','p').lower()+'_COMBINED_CUBE_MED_FINAL.fits' for a in self.keys()]
+        self._keys_corrected = ['../../../cubes/'+(a.replace('-','m')).replace('+','p').lower()+'_COMBINED_CUBE_MED_FINAL.fits' for a in self.keys()]
 
 
     def keys(self):

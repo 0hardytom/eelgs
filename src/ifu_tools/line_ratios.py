@@ -24,12 +24,14 @@ def classify_bpt(log_nii_ha, log_oiii_hb):
     }
 
 
-def get_R23(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta):
+def get_R23(f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta, silent=True):
     if any(f < 0 for f in [f_oiii5007, f_oiii4959, f_oii3726, f_oii3729, f_hbeta]):
-        print("Error: All input fluxes must be non-negative.")
+        if not silent:
+            print("Error: All input fluxes must be non-negative.")
         return np.nan
     if f_hbeta == 0:
-        print("Error: H-beta flux cannot be zero.")
+        if not silent:
+            print("Error: H-beta flux cannot be zero.")
         return np.nan
     oiii_flux_total = f_oiii5007 + f_oiii4959
     oii_flux_total = f_oii3726 + f_oii3729
@@ -55,10 +57,10 @@ def get_metallicity(f_oiii5007, f_oiii4959, f_oiii4363, f_oii3726, f_oii3729, f_
         # print('WARNING: Negative Flux')
         return np.nan
     if f_hbeta == 0:
-        print('WARNING: No Hbeta')
+        # print('WARNING: No Hbeta')
         return np.nan
     if f_oiii4363 == 0:
-        print('WARNING: No oiii4363')
+        # print('WARNING: No oiii4363')
         return np.nan
     R_OIII = (f_oiii5007 + f_oiii4959) / f_oiii4363
     if R_OIII <= 7.937:
