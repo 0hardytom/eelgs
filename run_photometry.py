@@ -20,7 +20,7 @@ from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photo
 from photutils.background import LocalBackground
 
 # --- Configuration ---
-INPUT_CSV = 'notebooks/xmas/catalogue_analysis/peas_test.csv'
+INPUT_CSV = 'notebooks/xmas/catalogue_analysis/peas.csv'
 OUTPUT_CSV = 'photometry_results.csv'
 DATA_DIR = 'phot-temp'
 APERTURE_RADIUS_ARCSEC = 2.0
@@ -103,13 +103,7 @@ def download_spitzer_image(coord, band_info, download_dir):
         # Use the Simple Image Access (SIA) protocol to find images
         # The SIA service requires the radius to be in the 'pos' tuple
         radius_deg = (5 * u.arcmin).to(u.deg).value
-        pos_with_radius = (coord,radius_deg)
 
-        # table = Irsa.query_sia( # DOESNT WORK FOR LEGACY IMAGING
-        #     table="spitzer_sha",
-        #     pos=pos_with_radius,
-        #     collection='spitzer_sha_irac' if instrument == 'IRAC' else 'spitzer_sha_mips'
-        # )
         im_table = seip_service2.search(pos=(coord.ra.deg, coord.dec.deg, radius_deg),
                                 collection='spitzer_sha')
 
@@ -117,15 +111,7 @@ def download_spitzer_image(coord, band_info, download_dir):
             print(f"  No suitable Spitzer/{instrument} Ch{channel} observations found.")
             return None
         
-        table = im_table.to_table
-        # Filter for the correct channel and data type (Level 2 mosaic)
-        # SIA table columns are different, often using byte strings
-        # mask = [
-        #     (str(row['instrument_name']) == instrument) and
-        #     (str(row['energy_bandpassname']) == instrument+channel) and
-        #     (row['calib_level'] == '2') # Post-Basic Calibrated Data (Level 2)
-        #     for row in table
-        #]
+        table = im_table.to_table()
         mask = (table['instrument_name'] == instrument
                 )&(table['energy_bandpassname'] == instrument+channel
                    )&(table['calib_level'] == 2
@@ -173,7 +159,6 @@ def perform_photometry(image_path, coord):
 
             # Define apertures
             pixel_scale_deg_per_pix = proj_plane_pixel_scales(wcs)[0]
-            global pixel_scale_arcsec_per_pix
             pixel_scale_arcsec_per_pix = pixel_scale_deg_per_pix * 3600  # Convert deg to arcsec
             aperture = CircularAperture(position, r=APERTURE_RADIUS_ARCSEC / pixel_scale_arcsec_per_pix)
             # annulus = CircularAnnulus(position,
@@ -192,8 +177,8 @@ def perform_photometry(image_path, coord):
                 photplam = hdul[sci_ext].header['PHOTPLAM'] * u.AA
                 flux_density = (bkg_phot['aperture_sum'][0] * photflam).to(u.uJy, u.spectral_density(photplam))
                 flux_ujy = flux_density.value
-            elif 'FLUXMJY' in hdul[sci_ext].header: # Spitzer (MJy/sr)
-                flux_per_pixel_mjy = hdul[sci_ext].header['FLUXMJY']
+            elif 'FLUXCONV' in hdul[sci_ext].header: # Spitzer (MJy/sr)
+                flux_per_pixel_mjy = hdul[sci_ext].header['FLUXCONV']
                 pixel_area_sr = proj_plane_pixel_area(wcs).to(u.sr).value
                 flux_density_mjy = bkg_phot['aperture_sum'][0] * flux_per_pixel_mjy * pixel_area_sr
                 flux_ujy = (flux_density_mjy * u.MJy).to(u.uJy).value
