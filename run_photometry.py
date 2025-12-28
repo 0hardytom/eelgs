@@ -15,14 +15,14 @@ from astropy.table import Table
 
 from astroquery.mast import Observations
 from astroquery.ipac.irsa import Irsa
-
+from astropy.utils.data import download_file
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
 from photutils.background import LocalBackground
 
 # --- Configuration ---
 INPUT_CSV = 'notebooks/xmas/catalogue_analysis/peas_test.csv'
 OUTPUT_CSV = 'photometry_results.csv'
-DATA_DIR = 'phot_data'
+DATA_DIR = 'phot-temp'
 APERTURE_RADIUS_ARCSEC = 2.0
 SKY_ANNULUS_INNER_ARCSEC = 4.0
 SKY_ANNULUS_OUTER_ARCSEC = 6.0
@@ -110,21 +110,26 @@ def download_spitzer_image(coord, band_info, download_dir):
         #     pos=pos_with_radius,
         #     collection='spitzer_sha_irac' if instrument == 'IRAC' else 'spitzer_sha_mips'
         # )
-        table = seip_service2.search(pos=(coord.ra.deg, coord.dec.deg, radius_deg),
+        im_table = seip_service2.search(pos=(coord.ra.deg, coord.dec.deg, radius_deg),
                                 collection='spitzer_sha')
 
-        if not table:
+        if not im_table:
             print(f"  No suitable Spitzer/{instrument} Ch{channel} observations found.")
             return None
-
+        
+        table = im_table.to_table
         # Filter for the correct channel and data type (Level 2 mosaic)
         # SIA table columns are different, often using byte strings
-        mask = [
-            (str(row['instrument_name']) == instrument) and
-            (str(row['energy_bandpassname']) == channel) and
-            (row['product_level'] == '2') # Post-Basic Calibrated Data (Level 2)
-            for row in table
-        ]
+        # mask = [
+        #     (str(row['instrument_name']) == instrument) and
+        #     (str(row['energy_bandpassname']) == instrument+channel) and
+        #     (row['calib_level'] == '2') # Post-Basic Calibrated Data (Level 2)
+        #     for row in table
+        #]
+        mask = (table['instrument_name'] == instrument
+                )&(table['energy_bandpassname'] == instrument+channel
+                   )&(table['calib_level'] == 2
+                      )&(table['dataproduct_subtype']=='science')
         filtered_table = table[mask]
 
         if not filtered_table:
@@ -139,7 +144,8 @@ def download_spitzer_image(coord, band_info, download_dir):
         if isinstance(url, bytes):
             url = url.decode('utf-8')
             
-        Irsa.download_file(url, download_path)
+        path = download_file(url)
+        os.system(f'mv {path} {download_path}')
         return download_path
 
     except Exception as e:
