@@ -18,6 +18,8 @@ from astroquery.ipac.irsa import Irsa
 from astropy.utils.data import download_file
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
 from photutils.background import LocalBackground
+from regions import PolygonSkyRegion, CircleSkyRegion
+from regions.core import PixCoord
 
 # --- Configuration ---
 INPUT_CSV = 'notebooks/xmas/catalogue_analysis/peas.csv'
@@ -30,6 +32,8 @@ SKY_ANNULUS_OUTER_ARCSEC = 6.0
 # Band definitions: (query_name, instrument, archive)
 BANDS = {
     # HST - Using common filters for ACS and WFC3
+    'HST_F218W': ('F218W', 'UVIS', 'MAST'),
+    'HST_F225W': ('F225W', 'UVIS', 'MAST'),
     'HST_F275W': ('F275W', 'UVIS', 'MAST'),
     'HST_F435W': ('F435W', 'ACS', 'MAST'),
     'HST_F606W': ('F606W', 'ACS', 'MAST'),
@@ -50,6 +54,7 @@ def download_hst_image(coord, band_info, download_dir):
     """Queries MAST and downloads the first available HST image for a given band."""
     print(f"  Querying MAST for {band_info[0]}...")
     try:
+        # global obs_table
         obs_table = Observations.query_criteria(
             obs_collection="HST",
             instrument_name=f"WFC3/{band_info[1]}" if "UVIS" in band_info[1] or "IR" in band_info[1] else f"{band_info[1]}/WFC",
@@ -57,14 +62,24 @@ def download_hst_image(coord, band_info, download_dir):
             coordinates=coord,
             t_exptime=[100, 99999], # Avoid very short exposures
             dataproduct_type="image",
+            # s_region = f'CIRCLE ICRS {coord.ra.deg} {coord.dec.deg} {(10 * u.arcmin).to(u.deg).value}'
         )
+        # global testcoord 
+        testcoord = coord
         
         if not obs_table:
             print(f"  No suitable HST observations found for {band_info[0]}.")
             return None
+        
+        if 'IR' in band_info[1]:
+            polymask = np.array(['POLYGON' in item[7:] for item in obs_table['s_region'] ])
+            global obs_table_clean
+            obs_table_clean = obs_table[polymask]
+        else:
+            obs_table_clean = obs_table
 
         # Prioritize DRZ/DRC files (drizzled, corrected)
-        products = Observations.get_product_list(obs_table)
+        products = Observations.get_product_list(obs_table_clean)
         science_products = Observations.filter_products(products,
             productSubGroupDescription=['DRZ', 'DRC'],
             extension="fits"
@@ -77,7 +92,7 @@ def download_hst_image(coord, band_info, download_dir):
         if not science_products:
             print(f"  No FITS products found for {band_info[0]}.")
             return None
-
+        
         # Download the first result
         Observations.download_products(science_products[0], download_dir=download_dir, mrp_only=False)
         
@@ -138,7 +153,7 @@ def download_spitzer_image(coord, band_info, download_dir):
         print(f"  Error downloading Spitzer data for {instrument} Ch{channel}: {e}")
         return None
 
-def perform_photometry(image_path, coord):
+def perform_photometry(image_path, coord, instrument):
     """Performs aperture photometry on a single FITS image."""
     print(f"  Performing photometry on {os.path.basename(image_path)}...")
     try:
@@ -150,6 +165,8 @@ def perform_photometry(image_path, coord):
                     sci_ext = i
                     break
             
+            # print(f'sci extension {sci_ext}')
+
             wcs = WCS(hdul[sci_ext].header)
             data = hdul[sci_ext].data
 
@@ -166,20 +183,27 @@ def perform_photometry(image_path, coord):
                                         # r_out=SKY_ANNULUS_OUTER_ARCSEC / pixel_scale_arcsec_per_pix)
             local_background_annulus = LocalBackground(SKY_ANNULUS_INNER_ARCSEC / pixel_scale_arcsec_per_pix,
                                                     SKY_ANNULUS_OUTER_ARCSEC / pixel_scale_arcsec_per_pix)
-            local_background_estimate = local_background_annulus(data,*position)
+            local_background_estimate = local_background_annulus(data,*position, mask=np.isnan(data))
             # Perform background-subtracted photometry
-            bkg_phot = aperture_photometry(data - local_background_estimate, aperture, wcs=wcs)
-            
+            # bkg_phot = aperture_photometry(data - local_background_estimate, aperture, wcs=wcs)
+            bkg_phot = aperture_photometry(data, aperture, wcs=wcs)
+
+            # print(local_background_estimate)
+            # print(bkg_phot)
             # Unit conversion to microjanskys (uJy)
             flux_ujy = -999.0
             if 'PHOTFLAM' in hdul[sci_ext].header: # HST ABmag systems
+                # print('test')
                 photflam = hdul[sci_ext].header['PHOTFLAM'] * u.erg / u.s / u.cm**2 / u.AA
                 photplam = hdul[sci_ext].header['PHOTPLAM'] * u.AA
+                # print(photflam,photplam)
                 flux_density = (bkg_phot['aperture_sum'][0] * photflam).to(u.uJy, u.spectral_density(photplam))
+                # print(flux_density)
                 flux_ujy = flux_density.value
             elif 'FLUXCONV' in hdul[sci_ext].header: # Spitzer (MJy/sr)
                 flux_per_pixel_mjy = hdul[sci_ext].header['FLUXCONV']
-                pixel_area_sr = proj_plane_pixel_area(wcs).to(u.sr).value
+                pixel_area_in_sq_deg = proj_plane_pixel_area(wcs) * u.deg**2
+                pixel_area_sr = pixel_area_in_sq_deg.to(u.sr).value
                 flux_density_mjy = bkg_phot['aperture_sum'][0] * flux_per_pixel_mjy * pixel_area_sr
                 flux_ujy = (flux_density_mjy * u.MJy).to(u.uJy).value
 
@@ -237,7 +261,7 @@ def main():
                 image_path = download_spitzer_image(coord, (query_name, instrument), galaxy_data_dir)
 
             if image_path and os.path.exists(image_path):
-                flux = perform_photometry(image_path, coord)
+                flux = perform_photometry(image_path, coord, instrument)
                 galaxy_photometry[f'flux_{band_name}'] = flux
                 # Clean up the downloaded data immediately and robustly
                 cleanup_dir_contents(galaxy_data_dir)
@@ -259,5 +283,141 @@ def main():
         shutil.rmtree(DATA_DIR)
         print(f"Cleaned up temporary data directory: {DATA_DIR}")
 
+
+# def parse_s_region(s_region_string: str) -> list[PolygonSkyRegion]:
+#     """
+#     Parses an s_region string from an astronomical catalog query into a list
+#     of astropy PolygonSkyRegion objects.
+
+#     Handles strings containing one or multiple POLYGON definitions.
+#     """
+#     # The string can contain multiple polygons, so we split by the keyword "POLYGON"
+#     # This will result in a list where the first element is empty.
+#     polygon_strs = s_region_string.strip().upper().split('POLYGON')[1:]
+    
+#     regions = []
+#     for poly_str in polygon_strs:
+#         # The first word might be a coordinate system (e.g., ICRS).
+#         # We need to determine if the first element is a string or a coordinate.
+#         parts = poly_str.strip().split()
+#         if not parts:
+#             continue
+
+#         # Check if the first part is the coordinate system or the first coordinate
+#         try:
+#             # If this succeeds, the first part is a coordinate, and there is no system string
+#             float(parts[0])
+#             coord_parts = parts
+#         except (ValueError, IndexError):
+#             # Otherwise, the first part is the system string (e.g., 'ICRS'), so we skip it
+#             coord_parts = parts[1:]
+
+#         # Extract coordinate values (as floats)
+#         coords_flat = [float(p) for p in coord_parts]
+
+#         # A valid polygon must have an even number of coordinates. If not, skip it.
+#         if len(coords_flat) % 2 != 0:
+#             # Consider logging a warning here in a real application
+#             continue
+
+#         # Group the flat list into pairs of (ra, dec)
+#         vertices_coords = np.reshape(coords_flat, (-1, 2))
+        
+#         # Create an astropy SkyCoord object for the vertices
+#         vertices = SkyCoord(vertices_coords, unit='deg', frame='icrs')
+        
+#         # Create the PolygonSkyRegion and add it to our list
+#         regions.append(PolygonSkyRegion(vertices=vertices))
+        
+#     return regions
+
+# def is_circle_in_footprint(
+#     s_region_string: str,
+#     circle_center: SkyCoord,
+#     circle_radius: u.Quantity
+# ) -> bool:
+#     """
+#     Checks if a circular aperture is fully contained within an observation footprint.
+
+#     The footprint can consist of one or more polygons (e.g., for multi-chip detectors).
+#     The circle is considered "in" if it is fully contained by ANY of the polygons.
+
+#     Args:
+#         s_region_string: The string value from the 's_region' column.
+#         circle_center: The center of the circular aperture as an astropy SkyCoord.
+#         circle_radius: The radius of the aperture as an astropy Quantity (e.g., 1 * u.arcsec).
+
+#     Returns:
+#         True if the circle is contained in any of the footprint's polygons, False otherwise.
+#     """
+#     if not s_region_string or not isinstance(s_region_string, str):
+#         return False
+
+#     # Create the circular region for your object of interest
+#     circle_to_check = CircleSkyRegion(center=circle_center, radius=circle_radius)
+    
+#     # Parse the footprint string into one or more PolygonSkyRegion objects
+#     footprint_polygons = parse_s_region(s_region_string)
+
+#     if not footprint_polygons:
+#         return False
+
+#     # To check if a SkyRegion contains another, we need a WCS object to project
+#     # the regions onto a common 2D plane. We can create a simple tangential
+#     # projection centered on the region of interest.
+#     wcs = WCS(naxis=2)
+#     wcs.wcs.crpix = [0, 0]
+#     # Use a pixel scale appropriate for the circle size, e.g., 1/10th of the radius
+#     pixel_scale = (circle_radius / 10).to(u.deg).value
+#     wcs.wcs.cdelt = np.array([-pixel_scale, pixel_scale])
+#     # Center the projection on the circle's center for accuracy
+#     wcs.wcs.crval = [circle_center.ra.deg, circle_center.dec.deg]
+#     wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    
+#     # Check if the circle is contained in *any* of the polygons
+#     def contains(self, skycoord, wcs):
+#         pixel_region = self.to_pixel(wcs)
+#         # pixcoord = PixCoord.from_sky(skycoord, wcs)
+#         x,y = skycoord.to_pixel(wcs=wcs)
+#         pixcoord = PixCoord(x=x,y=y)
+#         return pixel_region.contains(pixcoord)
+    
+#     for polygon in footprint_polygons:
+#         # if polygon.contains(circle_to_check, wcs=wcs):
+#         if contains(polygon,circle_to_check,wcs=wcs):
+#             return True
+            
+#     return False
+
+# def check_footprints_in_table(
+#     table: Table,
+#     circle_center: SkyCoord,
+#     circle_radius: u.Quantity,
+#     s_region_col: str = 's_region'
+# ) -> np.ndarray:
+#     """
+#     Efficiently checks which rows in an Astropy Table contain a circular aperture.
+
+#     This function iterates over the table's s_region column and returns a
+#     boolean numpy array that can be used to mask the table.
+
+#     Args:
+#         table: The Astropy Table containing the observation footprints.
+#         circle_center: The center of the circular aperture (SkyCoord).
+#         circle_radius: The radius of the aperture (astropy Quantity).
+#         s_region_col: The name of the column containing the s_region strings.
+
+#     Returns:
+#         A numpy array of booleans with the same length as the table.
+#         True where the circle is contained, False otherwise.
+#     """
+#     is_contained_list = [
+#         is_circle_in_footprint(row[s_region_col], circle_center, circle_radius)
+#         for row in table
+#     ]
+#     return np.array(is_contained_list)
+
+
 if __name__ == "__main__":
     main()
+
