@@ -17,8 +17,8 @@ from astropy.modeling import models, fitting
 
 # from calculate_jiang19_metallicity import calculate_metallicity_jiang19 as cjm19
 sys.path.append('../../')
-# import src.ifu_tools.line_ratios as lr
-import line_ratios as lr
+import src.ifu_tools.line_ratios as lr
+# import line_ratios as lr
 
 import logging 
 logging.getLogger('mpdaf').setLevel(logging.WARNING)
