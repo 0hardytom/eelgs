@@ -65,7 +65,7 @@ def download_hst_image(coord, band_info, download_dir):
             # s_region = f'CIRCLE ICRS {coord.ra.deg} {coord.dec.deg} {(10 * u.arcmin).to(u.deg).value}'
         )
         # global testcoord 
-        testcoord = coord
+        # testcoord = coord
         
         if not obs_table:
             print(f"  No suitable HST observations found for {band_info[0]}.")
