@@ -736,7 +736,7 @@ class museCube:
         self.table_management(id,linefits, angdisp)
 
         # self.table_management(id,linefits)
-        return True
+        return linefits
 
     def stack_and_fit_spectra(self, plot=True):
         if not self.rest_spectra:
