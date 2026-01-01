@@ -620,7 +620,7 @@ class museCube:
         
         return id, radec, obj_spectrum, rest_spectrum
     
-    def fit_oii_doublet(self, dered_spectra, plot=False, id=None):
+    def fit_oii_doublet(self, dered_spectra, plot=False, id=None, verbose=False):
         lmin, lmax = 3715, 3740
         sub_spec = dered_spectra.subspec(lmin=lmin, lmax=lmax)
 
@@ -701,7 +701,10 @@ class museCube:
         if plot and id:
             self.plot_oii_doublet(sub_spec, fit, id)
 
-        return fit_3726, fit_3729
+        if verbose:
+            return fit_3726, fit_3729, fit
+        else:
+            return fit_3726, fit_3729
 
     def plot_oii_doublet(self, sub_spec, fit_model, id):
         wave = sub_spec.wave.coord()
