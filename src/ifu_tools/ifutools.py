@@ -291,7 +291,7 @@ class museCube:
         ax.plot(profile[0], profile[1], color='k', lw=1.4)
 
         ax.set_xlim(np.min(profile[0]), np.max(profile[0]))
-        ax.set_ylim(-0.1*np.max(profile[0]), 1.5*np.max(profile[0]))
+        ax.set_ylim(-0.1*np.max(profile[1]), 1.5*np.max(profile[1]))
 
         ax.set_xlabel(r'O$_{III}$-Calibrated Rest-$\lambda$, [$\AA$] }')
         ax.set_ylabel(r'Flux [$\times10^{-20}\,\mathrm{erg}/\AA\,s\,\mathrm{cm}^{-2}$]')
@@ -404,44 +404,185 @@ class museCube:
 
     ### EXTRACTION METHODS ###
 
-    def fit_line(self,dered_spectra, target_str:str):
-        target = self.rest_lambdas[target_str]
-        try:
-            line_fit = dered_spectra.gauss_fit(lmin=(target - 50), lmax=(target + 50),lpeak=target ,plot=False)
+    # def fit_line(self,dered_spectra, target_str:str):
+    #     target = self.rest_lambdas[target_str]
+    #     try:
+    #         line_fit = dered_spectra.gauss_fit(lmin=(target - 50), lmax=(target + 50),lpeak=target ,plot=False)
 
-            # check for the validity of the fit
-            sub_spec = dered_spectra.subspec(lmin=target - 15, lmax=target + 15)
-            if sub_spec is not None and line_fit is not None and hasattr(line_fit, 'peak') and hasattr(line_fit, 'cont'):
-                max_data_value = np.max(sub_spec.data)
-                fitted_peak_value = line_fit.peak + line_fit.cont
-                if fitted_peak_value > 1.5 * max_data_value:
-                    raise ValueError("Fitted peak is unrealistically high.")
-        except Exception:
-            sub_spec = dered_spectra.subspec(lmin=target - 10, lmax=target + 10)
+    #         # check for the validity of the fit
+    #         sub_spec = dered_spectra.subspec(lmin=target - 15, lmax=target + 15)
+    #         if sub_spec is not None and line_fit is not None and hasattr(line_fit, 'peak') and hasattr(line_fit, 'cont'):
+    #             max_data_value = np.max(sub_spec.data)
+    #             fitted_peak_value = line_fit.peak + line_fit.cont
+    #             if fitted_peak_value > 1.5 * max_data_value:
+    #                 raise ValueError("Fitted peak is unrealistically high.")
+    #     except Exception:
+    #         sub_spec = dered_spectra.subspec(lmin=target - 10, lmax=target + 10)
             
-            spec_for_continuum = None
-            if sub_spec is not None and len(sub_spec.shape) == 1 and sub_spec.shape[0] > 2:
-                spec_for_continuum = sub_spec
-            elif dered_spectra is not None and len(dered_spectra.shape) == 1 and dered_spectra.shape[0] > 2:
-                spec_for_continuum = dered_spectra
-            if spec_for_continuum:
-                continuum = np.mean(spec_for_continuum.data)
-                std_err = np.std(spec_for_continuum.data)
+    #         spec_for_continuum = None
+    #         if sub_spec is not None and len(sub_spec.shape) == 1 and sub_spec.shape[0] > 2:
+    #             spec_for_continuum = sub_spec
+    #         elif dered_spectra is not None and len(dered_spectra.shape) == 1 and dered_spectra.shape[0] > 2:
+    #             spec_for_continuum = dered_spectra
+    #         if spec_for_continuum:
+    #             continuum = np.mean(spec_for_continuum.data)
+    #             std_err = np.std(spec_for_continuum.data)
                 
-                fit_mock = SimpleNamespace(
-                    flux=0.0,
-                    err_flux=std_err,
-                    peak=0.0,
-                    cont=continuum,
-                    lpeak=target,
-                    fwhm=1.0,
-                    err_peak=std_err,
-                    err_cont=std_err,
-                    err_lpeak=0.0,
-                    err_fwhm=0.0
-                )
-                line_fit = fit_mock
-        return line_fit
+    #             fit_mock = SimpleNamespace(
+    #                 flux=0.0,
+    #                 err_flux=std_err,
+    #                 peak=0.0,
+    #                 cont=continuum,
+    #                 lpeak=target,
+    #                 fwhm=1.0,
+    #                 err_peak=std_err,
+    #                 err_cont=std_err,
+    #                 err_lpeak=0.0,
+    #                 err_fwhm=0.0
+    #             )
+    #             line_fit = fit_mock
+    #     return line_fit
+
+    def fit_line(self, dered_spectra, target_str: str):
+        """
+        Fits a Gaussian profile to a spectral line using astropy.modeling.
+
+        This function is designed to be more robust than the original implementation,
+        addressing issues with unphysical fits by using astropy.modeling with
+        parameter bounds and better initial guesses. It fits a Gaussian profile
+        plus a constant continuum level.
+
+        Parameters
+        ----------
+        dered_spectra : mpdaf.obj.Spectrum
+            The 1D spectrum to fit. It is assumed to be an object with methods
+            like .subspec() and attributes like .wave.coord() and .data,
+            consistent with an mpdaf.obj.Spectrum.
+        target_str : str
+            The name of the line to fit (e.g., 'OII3727'). Must be a key in
+            self.rest_lambdas.
+
+        Returns
+        -------
+        types.SimpleNamespace
+            An object containing the fit results, mimicking the output of
+            mpdaf's gauss_fit. Includes a 'fit_successful' boolean flag.
+            If the fit fails, it returns a mock object with zero flux.
+        """
+        target_wave = self.rest_lambdas[target_str]
+        fit_window = 50  # Half-width for the fitting window in Angstroms
+        line_half_width = 5 # Half-width for estimating peak and continuum
+
+        def make_mock_fit(continuum=0.0, std_err=0.0):
+            """Creates a mock fit object for failed fits."""
+            return SimpleNamespace(
+                flux=0.0, err_flux=std_err, peak=0.0, cont=continuum,
+                lpeak=target_wave, fwhm=1.0, err_peak=std_err,
+                err_cont=std_err, err_lpeak=0.0, err_fwhm=0.0,
+                fit_successful=False
+            )
+
+        try:
+            # 1. Extract data in the fitting window
+            sub_spec = dered_spectra.subspec(lmin=(target_wave - fit_window), lmax=(target_wave + fit_window))
+            if sub_spec is None:
+                return make_mock_fit()
+            
+            flux = np.asarray(sub_spec.data)
+            if flux.size < 5:
+                return make_mock_fit()
+
+            wave = sub_spec.wave.coord()
+            
+            # Handle masks or NaNs
+            valid = ~np.isnan(flux)
+            if hasattr(sub_spec, 'mask'):
+                valid &= ~sub_spec.mask
+            
+            wave, flux = wave[valid], flux[valid]
+
+            if len(flux) < 5:
+                return make_mock_fit()
+
+            # 2. Initial parameter guesses
+            continuum_mask = np.abs(wave - target_wave) > line_half_width
+            if np.any(continuum_mask):
+                cont_guess = np.ma.median(flux[continuum_mask])
+                cont_std = np.ma.std(flux[continuum_mask])
+            else:
+                cont_guess = np.ma.median(flux)
+                cont_std = np.ma.std(flux)
+            
+            peak_guess = np.max(flux - cont_guess)
+
+            # 3. Define model and set parameter bounds
+            g_init = models.Gaussian1D(amplitude=peak_guess, mean=target_wave, stddev=1.5)
+            c_init = models.Const1D(amplitude=cont_guess)
+            
+            g_init.amplitude.bounds = (0, 2.0 * np.max(flux))
+            g_init.mean.bounds = (target_wave - 10, target_wave + 10)
+            g_init.stddev.bounds = (0.5 / 2.355, 10 / 2.355) # FWHM ~0.5-10 A
+            if cont_std > 0:
+                c_init.amplitude.bounds = (cont_guess - 3*cont_std, cont_guess + 3*cont_std)
+
+            compound_model_init = g_init + c_init
+            fitter = fitting.LevMarLSQFitter()
+            
+            # 4. Fit the model
+            fit_model = fitter(compound_model_init, wave, flux, maxiter=1000)
+
+            if fitter.fit_info['ierr'] not in [1, 2, 3, 4]:
+                 raise ValueError("Fit did not converge.")
+
+            # 5. Extract results and calculate errors
+            gaussian_fit, continuum_fit = fit_model[0], fit_model[1]
+            param_cov = fitter.fit_info.get('param_cov')
+
+            if param_cov is not None:
+                diag_errors = np.sqrt(np.diag(param_cov))
+                err_peak, err_lpeak, err_stddev, err_cont = diag_errors
+            else:
+                err_peak, err_lpeak, err_stddev, err_cont = [0.0] * 4
+
+            fwhm = gaussian_fit.stddev.value * 2.35482
+            err_fwhm = err_stddev * 2.35482
+            flux_val = gaussian_fit.amplitude.value * gaussian_fit.stddev.value * np.sqrt(2 * np.pi)
+            
+            err_flux = 0.0
+            if param_cov is not None and flux_val != 0:
+                amp, std = gaussian_fit.amplitude.value, gaussian_fit.stddev.value
+                cov_amp_std = param_cov[0, 2]
+                term1 = (err_peak / amp)**2 if amp != 0 else 0
+                term2 = (err_stddev / std)**2 if std != 0 else 0
+                term3 = 2 * cov_amp_std / (amp * std) if (amp * std) != 0 else 0
+                err_flux_sq = (flux_val**2) * (term1 + term2 + term3)
+                err_flux = np.sqrt(err_flux_sq) if err_flux_sq > 0 else 0.0
+
+            # 6. Assemble the result object and perform sanity checks
+            fit_result = SimpleNamespace(
+                flux=flux_val, err_flux=err_flux, peak=gaussian_fit.amplitude.value,
+                cont=continuum_fit.amplitude.value, lpeak=gaussian_fit.mean.value,
+                fwhm=fwhm, err_peak=err_peak, err_cont=err_cont,
+                err_lpeak=err_lpeak, err_fwhm=err_fwhm, fit_successful=True
+            )
+            
+            if fit_result.peak + fit_result.cont > 2.0 * np.max(flux) or fit_result.flux < 0:
+                 raise ValueError("Fit is unphysical.")
+
+        except Exception:
+            sub_spec_small = dered_spectra.subspec(lmin=target_wave - 10, lmax=target_wave + 10)
+            if sub_spec_small is not None:
+                data_small = np.asarray(sub_spec_small.data)
+                if data_small.size > 2:
+                    continuum = np.ma.mean(data_small)
+                    std_err = np.ma.std(data_small)
+                    fit_result = make_mock_fit(continuum, std_err)
+                else:
+                    fit_result = make_mock_fit()
+            else:
+                fit_result = make_mock_fit()
+
+        return fit_result
     
     def _prepare_and_extract_spectrum(self, coords, z_guess, rad, foreground=0, cluster_member=0, lensed=0):
         id = self.makeid(coords)
@@ -461,8 +602,8 @@ class museCube:
         rest_spectrum = self.deredshift_spectrum(obj_spectrum, obj_z)
         self.rest_spectra[id] = rest_spectrum
 
-        obj_spectrum.write(f'spec/{self.title}/{id}_obs_spec.fits')
-        rest_spectrum.write(f'spec/{self.title}/{id}_rest_spec.fits')   
+        # obj_spectrum.write(f'spec/{self.title}/{id}_obs_spec.fits')
+        # rest_spectrum.write(f'spec/{self.title}/{id}_rest_spec.fits')   
         
         # Prepare initial row for the table
         row_data = {
@@ -595,23 +736,35 @@ class museCube:
     def _fit_all_lines(self, rest_spectrum, id, plot=True):
         linefits = []
         linenames = list(self.rest_lambdas.keys())
-        i = 0
-        while i < len(linenames):
-            linename = linenames[i]
+        # i = 0
+        # while i < len(linenames):
+        #     linename = linenames[i]
             
+        #     if linename == 'oii3726':
+        #         oii3726_fit, oii3729_fit = self.fit_oii_doublet(rest_spectrum, plot=plot, id=id)
+        #         linefits.append(oii3726_fit)
+        #         linefits.append(oii3729_fit)
+        #         i += 2  # Increment by 2 to skip oii3729
+        #         continue
+            
+        #     linefit = self.fit_line(rest_spectrum, linename)
+        #     linefits.append(linefit)
+        #     if plot and linefit.flux != 0:
+        #         self.plot_extracted_line(rest_spectrum, linefit, linename, id)
+        #     i += 1
+        for i,linename in enumerate(linenames):
             if linename == 'oii3726':
                 oii3726_fit, oii3729_fit = self.fit_oii_doublet(rest_spectrum, plot=plot, id=id)
                 linefits.append(oii3726_fit)
                 linefits.append(oii3729_fit)
-                i += 2  # Increment by 2 to skip oii3729
                 continue
-            
-            linefit = self.fit_line(rest_spectrum, linename)
-            linefits.append(linefit)
-            if plot and linefit.flux != 0:
-                self.plot_extracted_line(rest_spectrum, linefit, linename, id)
-            
-            i += 1
+            elif linename == 'oii3729':
+                continue
+            else:
+                linefit = self.fit_line(rest_spectrum, linename)
+                linefits.append(linefit)
+                if plot and linefit.flux != 0:
+                    self.plot_extracted_line(rest_spectrum, linefit, linename, id)
             
         return linefits
     
@@ -736,7 +889,7 @@ class museCube:
         self.table_management(id,linefits, angdisp)
 
         # self.table_management(id,linefits)
-        return linefits
+        return True
 
     def stack_and_fit_spectra(self, plot=True):
         if not self.rest_spectra:
@@ -784,7 +937,7 @@ class museCube:
         id = 'STACK_master'
         self._dirmanagement(id=id)
         
-        stacked_spectrum.write(f'spec/{self.title}/{id}_rest_spec.fits')
+        # stacked_spectrum.write(f'spec/{self.title}/{id}_rest_spec.fits')
 
         # Prepare table row for the stacked spectrum
         if id in self.ex_table['object_id']:
@@ -845,6 +998,7 @@ class museCube:
         self.ex_table['zcluster'] = zcl
         self.ex_table['name'] = self.ex_table['name'].astype(str)
         self.ex_table['name'] = self.title
+        
         
 class Candidates:
     def __init__(self, file_path: str = 'candidates.list'):
