@@ -1145,3 +1145,22 @@ class Candidates:
         
         return rebinned_spectra_dict
         
+def get_fromIFU(candidate, extras=False, locpref = '../../../cubes/'):
+    cluster = candidate['name']
+    print(cluster)
+    loc = locpref+cluster+'_COMBINED_CUBE_MED_FINAL.fits'
+    with fits.open(loc) as hdul:
+        cx,cy = (hdul[1].header['CRVAL1'],hdul[1].header['CRVAL2'])
+        cent = SkyCoord(cx,cy, unit = u.deg)
+
+    galloc = SkyCoord(candidate['ra'], candidate['dec'], unit=u.deg)
+    cube_ift = ift.museCube(loc, cent.ra.deg,cent.dec.deg)
+    cluster = Cube(loc)
+    linefits = cube_ift.pick_target(galloc,candidate['z'],0.7,plot=False)
+
+    spectrum_o = cube_ift.spectra.get(list(cube_ift.spectra.keys())[0])
+    rest_spectrum = cube_ift.rest_spectra.get(list(cube_ift.spectra.keys())[0])
+
+    freq = np.linspace(rest_spectrum.get_start(), rest_spectrum.get_end(), rest_spectrum.shape[0])
+
+    return galloc, cube_ift, cluster, spectrum_o, rest_spectrum
