@@ -1154,7 +1154,7 @@ def get_fromIFU(candidate, extras=False, locpref = '../../../cubes/'):
         cent = SkyCoord(cx,cy, unit = u.deg)
 
     galloc = SkyCoord(candidate['ra'], candidate['dec'], unit=u.deg)
-    cube_ift = ift.museCube(loc, cent.ra.deg,cent.dec.deg)
+    cube_ift = museCube(loc, cent.ra.deg,cent.dec.deg)
     cluster = Cube(loc)
     linefits = cube_ift.pick_target(galloc,candidate['z'],0.7,plot=False)
 
