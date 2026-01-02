@@ -10,7 +10,7 @@ from astropy.visualization import ZScaleInterval
 from astropy.table import Table
 from types import SimpleNamespace
 import re
-from astropy.io import ascii
+from astropy.io import ascii, fits
 from astropy import units as u
 from astropy.table import Table, vstack, hstack
 from astropy.modeling import models, fitting
