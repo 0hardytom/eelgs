@@ -43,6 +43,7 @@ data/results/*
 # Environment variables
 .env
 .venv
+.SED_venv
 env/
 venv/
 ENV/
