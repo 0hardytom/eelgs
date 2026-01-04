@@ -226,7 +226,7 @@ class museCube:
     #     spec = self.cube.aperture(centre, radius, is_sum=True)
     #     return spec
 
-    def extract_spectrum(self, ra, dec, radius, redshift, corrRADEC = True):
+    def extract_spectrum(self, ra, dec, radius, redshift, corrRADEC = False):
         if not corrRADEC:
             centre = (dec, ra)
             spec = self.cube.aperture(centre, radius, is_sum=True)
@@ -240,12 +240,16 @@ class museCube:
             lambda_max = oiii_observed_wave + (wave_window / 2)
 
             subcube = self.cube.subcube((dec,ra),1,(lambda_min,lambda_max))
-            # subcube = self.cube.select_lambda(lambda_min, lambda_max)
+
             oiii_image = subcube.sum(axis=0)
 
             peak_info = oiii_image.peak()
-            corrected_dec = peak_info['dec']
-            corrected_ra = peak_info['ra']
+            corrected_dec = peak_info['y']
+            corrected_ra = peak_info['x']
+
+            print(type(corrected_dec))
+            print(dec, ra)
+            print(corrected_dec,corrected_ra)
 
             corrected_centre = (corrected_dec, corrected_ra)
             spec = self.cube.aperture(corrected_centre, radius, is_sum=True)
@@ -616,8 +620,11 @@ class museCube:
         
         radec = (coords.ra.deg, coords.dec.deg)
         
-        obj_spectrum = self.extract_spectrum(radec[0], radec[1], radius=rad)
+        # obj_spectrum, newra,newdec = self.extract_spectrum(radec[0], radec[1], radius=rad, redshift=z_guess)
+        obj_spectrum = self.extract_spectrum(radec[0], radec[1], radius=rad, redshift=z_guess)
         self.spectra[id] = obj_spectrum
+
+        # radec = (newra,newdec)
         
         try:
             obj_z = self.find_z_from_line(obj_spectrum, z_guess)
