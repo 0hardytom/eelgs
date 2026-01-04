@@ -475,7 +475,7 @@ class museCube:
 
     def fit_line(self, dered_spectra, target_str: str):
         target_wave = self.rest_lambdas[target_str]
-        fit_window = 50  # Half-width for the fitting window in Angstroms
+        fit_window = 25  # Half-width for the fitting window in Angstroms
         line_half_width = 5 # Half-width for estimating peak and continuum
 
         def make_mock_fit(continuum=0.0, std_err=0.0):
@@ -1102,10 +1102,11 @@ class Candidates:
 
         return table, redshift
     
-    def analyse_all(self):
+    def analyse_all(self, raw=False):
         self.analysed = True
 
         tables = {}
+        raw_tables = {}
         spectra = {}
         for i,key in enumerate(self.keys_corrected()):
             name = self.keys()[i]
@@ -1120,10 +1121,16 @@ class Candidates:
             indiv_cube.process_multiple_candidates(tab, zcl=z)
 
             tables[name] = indiv_cube.ex_table
+            raw_tables[name] = indiv_cube.raw_table
             spectra[name] = indiv_cube.rest_spectra
 
         self.combined_table = vstack(list(tables.values()))
         self.combined_table.write('allsources.csv', overwrite=True)
+
+        if raw:
+            self.combined_table_raw = vstack(list(raw_tables.values()))
+            self.combined_table_raw.write('allsources_uncorrected.csv', overwrite=True)
+
         self.spectra = spectra
 
     def coadd(self) -> dict:
