@@ -221,10 +221,36 @@ class museCube:
             print(f"An error occurred while writing with Astropy: {e}")
             return False
 
-    def extract_spectrum(self, ra, dec, radius):
-        centre = (dec, ra)
-        spec = self.cube.aperture(centre, radius, is_sum=True)
-        return spec
+    # def extract_spectrum(self, ra, dec, radius):
+    #     centre = (dec, ra)
+    #     spec = self.cube.aperture(centre, radius, is_sum=True)
+    #     return spec
+
+    def extract_spectrum(self, ra, dec, radius, redshift, corrRADEC = True):
+        if not corrRADEC:
+            centre = (dec, ra)
+            spec = self.cube.aperture(centre, radius, is_sum=True)
+            return spec      
+
+        else:
+            OIII_REST_WAVE = 5007.0
+            oiii_observed_wave = OIII_REST_WAVE * (1 + redshift)
+            wave_window = 20.0
+            lambda_min = oiii_observed_wave - (wave_window / 2)
+            lambda_max = oiii_observed_wave + (wave_window / 2)
+
+            subcube = self.cube.subcube((dec,ra),1,(lambda_min,lambda_max))
+            # subcube = self.cube.select_lambda(lambda_min, lambda_max)
+            oiii_image = subcube.sum(axis=0)
+
+            peak_info = oiii_image.peak()
+            corrected_dec = peak_info['dec']
+            corrected_ra = peak_info['ra']
+
+            corrected_centre = (corrected_dec, corrected_ra)
+            spec = self.cube.aperture(corrected_centre, radius, is_sum=True)
+
+            return spec, corrected_ra, corrected_dec
     
     def deredshift_spectrum(self, spec, z):
         spec_rest = spec.copy()
@@ -970,7 +996,7 @@ class museCube:
         for i in range(len(all_coords)):
             csv_coords = all_coords[i]
             z_estimate = coord_table['z_est'][i]
-            self.pick_target(csv_coords, z_estimate, 0.7)
+            self.pick_target(csv_coords, z_estimate, 1)
         self.stack_and_fit_spectra(plot=True)
         self.write_table()
 
@@ -991,7 +1017,7 @@ class museCube:
             is_cluster_member = 1 if 'cluster member' in description else 0
             is_lensed = 1 if 'lensed' in description else 0
 
-            self.pick_target(csv_coords, z_estimate, 0.7,
+            self.pick_target(csv_coords, z_estimate, 1,
                              foreground=is_foreground, 
                              cluster_member=is_cluster_member, 
                              lensed=is_lensed)
@@ -1156,7 +1182,7 @@ def get_fromIFU(candidate, extras=False, locpref = '../../../cubes/'):
     galloc = SkyCoord(candidate['ra'], candidate['dec'], unit=u.deg)
     cube_ift = museCube(loc, cent.ra.deg,cent.dec.deg)
     cluster = Cube(loc)
-    linefits = cube_ift.pick_target(galloc,candidate['z'],0.7,plot=False)
+    linefits = cube_ift.pick_target(galloc,candidate['z'],1,plot=False)
 
     spectrum_o = cube_ift.spectra.get(list(cube_ift.spectra.keys())[0])
     rest_spectrum = cube_ift.rest_spectra.get(list(cube_ift.spectra.keys())[0])
