@@ -474,31 +474,6 @@ class museCube:
     #     return line_fit
 
     def fit_line(self, dered_spectra, target_str: str):
-        """
-        Fits a Gaussian profile to a spectral line using astropy.modeling.
-
-        This function is designed to be more robust than the original implementation,
-        addressing issues with unphysical fits by using astropy.modeling with
-        parameter bounds and better initial guesses. It fits a Gaussian profile
-        plus a constant continuum level.
-
-        Parameters
-        ----------
-        dered_spectra : mpdaf.obj.Spectrum
-            The 1D spectrum to fit. It is assumed to be an object with methods
-            like .subspec() and attributes like .wave.coord() and .data,
-            consistent with an mpdaf.obj.Spectrum.
-        target_str : str
-            The name of the line to fit (e.g., 'OII3727'). Must be a key in
-            self.rest_lambdas.
-
-        Returns
-        -------
-        types.SimpleNamespace
-            An object containing the fit results, mimicking the output of
-            mpdaf's gauss_fit. Includes a 'fit_successful' boolean flag.
-            If the fit fails, it returns a mock object with zero flux.
-        """
         target_wave = self.rest_lambdas[target_str]
         fit_window = 50  # Half-width for the fitting window in Angstroms
         line_half_width = 5 # Half-width for estimating peak and continuum
