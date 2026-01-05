@@ -1,0 +1,372 @@
+% mnras_template.tex 
+%
+% LaTeX template for creating an MNRAS paper
+%
+% v3.3 released April 2024
+% (version numbers match those of mnras.cls)
+%
+% Copyright (C) Royal Astronomical Society 2015
+% Authors:
+% Keith T. Smith (Royal Astronomical Society)
+
+% Change log
+%
+% v3.3 April 2024
+%   Updated \pubyear to print the current year automatically
+% v3.2 July 2023
+%	Updated guidance on use of amssymb package
+% v3.0 May 2015
+%    Renamed to match the new package name
+%    Version number matches mnras.cls
+%    A few minor tweaks to wording
+% v1.0 September 2013
+%    Beta testing only - never publicly released
+%    First version: a simple (ish) template for creating an MNRAS paper
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Basic setup. Most papers should leave these options alone.
+\documentclass[fleqn,usenatbib]{mnras}
+
+% MNRAS is set in Times font. If you don't have this installed (most LaTeX
+% installations will be fine) or prefer the old Computer Modern fonts, comment
+% out the following line
+\usepackage{newtxtext,newtxmath}
+% Depending on your LaTeX fonts installation, you might get better results with one of these:
+%\usepackage{mathptmx}
+%\usepackage{txfonts}
+
+% Use vector fonts, so it zooms properly in on-screen viewing software
+% Don't change these lines unless you know what you are doing
+\usepackage[T1]{fontenc}
+
+% Allow "Thomas van Noord" and "Simon de Laguarde" and alike to be sorted by "N" and "L" etc. in the bibliography.
+% Write the name in the bibliography as "\VAN{Noord}{Van}{van} Noord, Thomas"
+\DeclareRobustCommand{\VAN}[3]{#2}
+\let\VANthebibliography\thebibliography
+\def\thebibliography{\DeclareRobustCommand{\VAN}[3]{##3}\VANthebibliography}
+
+
+%%%%% AUTHORS - PLACE YOUR OWN PACKAGES HERE %%%%%
+
+% Only include extra packages if you really need them. Avoid using amssymb if newtxmath is enabled, as these packages can cause conflicts. newtxmatch covers the same math symbols while producing a consistent Times New Roman font. Common packages are:
+\usepackage{graphicx}	% Including figure files
+\usepackage{amsmath}	% Advanced maths commands
+\usepackage[font=small, labelfont=bf]{caption} 
+\usepackage{ragged2e}
+\usepackage{fontenc}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%% AUTHORS - PLACE YOUR OWN COMMANDS HERE %%%%%
+
+% Please keep new commands to a minimum, and use \newcommand not \def to avoid
+% overwriting existing commands. Example:
+%\newcommand{\pcm}{\,cm$^{-2}$}	% per cm-squared
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%% TITLE PAGE %%%%%%%%%%%%%%%%%%%
+
+% Title of the paper, and the short title which is used in the headers.
+% Keep the title short and informative.
+\title[Finding EELGS with VLT-MUSE]{Identifying Extreme [OIII] $\lambda5007$ Emission-Line Galaxies in the Fields of Massive Clusters with VLT-MUSE }
+
+% The list of authors, and the short list which is used in the headers.
+% If you need two or more lines of authors, add an extra line using \newauthor
+\author[T. G. Hardy et. al.]{
+Tom G. Hardy,$^{1}$\thanks{E-mail: thomas.hardy@durham.ac.uk}
+Alastair C. Edge,$^{1}$
+\\
+% List of institutions
+$^{1}$Centre for Extragalactic Astronomy, Department of Physics, Durham University, South Road, Durham DH1 3LE, UK\\
+}
+
+% These dates will be filled out by the publisher
+\date{Accepted XXX. Received YYY; in original form ZZZ}
+
+% Prints the current year, for the copyright statements etc. To achieve a fixed year, replace the expression with a number. 
+\pubyear{\the\year{}}
+
+% Don't change these lines
+\begin{document}
+\label{firstpage}
+\pagerange{\pageref{firstpage}--\pageref{lastpage}}
+\maketitle
+
+% Abstract of the paper
+\begin{abstract}
+The increasing number of JWST-JADES Ly$\alpha$ star-forming galaxy candidates, considered to be those driving early cosmic reionization, are limited to low-resolution rest-frame UV and visible observations; their dwarf [OIII]-extreme line emission (EELG) counterparts in the nearby Universe therefore provide important spectral analogues. These EELGs, however, present challenges to photometric selection due to their lack of stellar continuum: wide-band photometric surveys are therefore challenged by biases in redshift distributions. We instead present Integral Field (IFU) Spectroscopy as a direct selection method with VLT-MUSE, identifying a sample of 38 EELGs from a selection of 183 ELG-candidates in the fields of massive clusters. We present a source extraction pipeline and spectral fitting to infer the astrophysical properties of these galaxies, including obtaining metallicities and using legacy HST imaging to SED fit our pea candidates and infer their masses and star-forming rates. We further investigate the population distributions of these galaxies and compare to the MUSE flat-field, and new southern-sky populations of these galaxies.
+\end{abstract}
+
+% Select between one and six entries from the list of approved keywords.
+% Don't make up new ones.
+\begin{keywords}
+galaxies:starburst -- galaxies:dwarf 
+\end{keywords}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%% BODY OF PAPER %%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+One of the key ongoing questions in extragalactic astronomy involves understanding the process under which the intergalactic medium transitioned from opaque neutral hydrogen to the current transparent, ionised state: the epoch of reionization. It is accepted \citep{brunker_2020} that the ionising  radiation of this period $z>6$ was comprised of that from star forming galaxies \citep{robertson2020,tacchella_2025} and active galactic nuclei \citep{2004ApJ...604..484M, Madau2014}; with the increasing number of highly star-forming galaxy candidates at redshifts above $z=10$ discovered by the James Webb Space Telescope (JWST) \citep{Rhoads, hainline_2023} it has become valuable to study their nearby counterparts, from which a more detailed picture can be built of their spectra. 
+
+It is believed the strongest contribution to ionizing radiation by SFGs is from extreme emission line galaxies (EELGs), a class of dwarf galaxies dominated by recent intense starburst, forming massive hot stars with UV-dominant emission \citep{tang2023, davis2024}. This strongly ionises the surrounding interstellar medium, causing fluorescence at specific atomic transitions, a process initially established by \cite{menzel}. These extreme lines dominate the galaxies’ spectra, given the low-mass galaxies lack large stellar populations to contribute to the spectral continuum, and therefore give the observed atomic transition lines extreme equivalent widths (EWs; the fraction of integrated flux on a specific emission line to the continuum level); this process of starburst naturally produces large amounts of Lyman continuum (UV) radiation from the rapidly growing population of young, massive hot stars \citep{madau1999, gigure2008}. It should be noted that this theory of reionisation is complicated by the large neutral hydrogen column densities surrounding star forming nebulae in these young galaxies; \cite{izotov_2018} and \cite{jaskotoey} highlight that for low-mass galaxies a fully-ionized ISM or one with optically thin tunnels allow for the escape of UV radiation into the intergalactic medium. Recent observations of $z>6$ galaxies have established strong correlation between [OIII]-H$\alpha$ emission  and Lyman Continuum (UV) escape \citep{tang2023} (established initially at low $z$ by \cite{flury2022}), and similarly with UV luminosity \citep{endsley2024}: in contrast with earlier \citep{hackman1995} beliefs about starburst, deep-field astronomy has proven EELGs as direct probes of the (re-)ionising IGM. 
+
+These EELGs are distinguished by their dominant emission features, with the primary diagnostic depending on the galaxy's redshift. For star-forming galaxies in the early universe these are rest-frame ultraviolet features: a prominent Lyman alpha emission line or break leads to ‘Ly-$\alpha$-’ or ‘Ly-break-’ galaxy classification \citep{Tacchella_2023_2}. Conversely, EELGs in the $z < 1$ universe are discerned by the strength of their [OIII] emission, a feature that is intrinsically visible and dominates their observed optical spectra: those nearby were discovered as a class by GalaxyZoo \citep{cardamone} identification from the Sloan Digital Sky Survey (SDSS), earning the name ‘Green Peas’ (GPs) due to their unresolved, [OIII]-extreme imaging causing them to appear green when artificially coloured. 
+
+As JWST-JADES has recently began to discover more SFGs deep into the $z>10$ EoR \citep{hainline_2023}, these GPs have become popular analogues of their high-redshift counterparts (e.g. \cite{brunker_2020, izotov_2018, Rhoads}): they too are low metallicity \citep{jiang}, high specific star forming rate (sSFR) \citep{brunker_2020, liu2022}, and of which a significant number (~50$\%$) show high Ly$\alpha$ escape fraction \cite{jaskotoey,yang_2017}. Detection of Lyman continuum leakage is rare at local redshifts ($z<<1$) and most of these local continuum-leaking galaxies are GPs \citep{yang_2016, izotov_2016}; those of the highest escape fraction are all Green Peas. This population of galaxies has therefore become a useful analogue of the SFG reionisation mechanism, and has therefore seen the recent development of large Pea catalogues \citep{samonski2025}. More recently, these galaxies are often further classified into those with additional strong H$\alpha$ emission on $z<0.36$ \citep{izotov2011} – ‘Purple Grapes’ – and extremely low-mass, very local $z<0.1$ ‘Blueberry’ Galaxies \citep{yang2017,liu2022}. For the purposes of this study we use the generalised Pea description; that of unresolved dwarfs with EW[OIII]$>100\,$\AA in the nearby $z<1$ universe.
+
+We identify [OIII]-extreme (‘Pea-like’) galaxies from massive cluster observations by the Multi-Unit Spectroscopic Explorer (MUSE) on the Very Large Telescope \citep{bacon2010}. This optical Integral Field Unit (IFU) instrument has a 1-arcminute$^2$ field of view on $[4650, 9300]$ nm; this observation band makes the instrument an ideal choice for [OIII] selection on $z<0.86$. These observations of galaxy clusters, the most massive gravitationally bound objects in the observable Universe, are part of a larger VLT-MUSE survey of cluster cores comparing strong lensing mass models to physical observations \citep{jauzac,jauzac2021}. This task is suited ideally to VLT-MUSE, which can detect galaxies to $z=6$ \citep{bacon2015}, and in this investigation allows for the identification of populations of foreground- cluster member- and background galaxies. Notably, because of their high mass, these clusters magnify background sources through gravitational lensing; this has become a powerful tool to map dark matter distributions in clusters \citep{massey2010}, and can be used to magnify faint background galaxies at high $z$ (prior to JWST this was the leading strategy for direct high-z detection using Hubble; see \cite{livermore2017, bouwens2018,kawamata2018} for prominent examples).
+
+Pea-like objects are often difficult to find uniformly with a traditional source finding procedure: their lack of stellar continuum often renders them invisible in photometric bands that do not align with specific emission lines and therefore creates biases in the populations scheduled for photometric follow-up. Recent efforts to instead use deeper spectroscopy and deeper imagine provide opportunities to establish estimates of the GP volume density \citep{amorin2015, brunker_2020, miller2024}, but are limited in census area, while SED-fitting-led wide-area methods instead are limited by lack of spectroscopic follow-up \cite{yang2017, samonski2025}. 
+
+In this paper we pose integral field spectroscopy (IFS) as a possible solution to these challenges. The technique has seen limited use before on individual GP observation \citep{bosch2019, polonio2023} although it lacks any GP survey application. With the nearby advent of ELT-HARMONI, MUSE’s next-generation successor on the Extremely Large Telescope \citep{harmoni2021}, we showcase IFS as a key tool for Extreme Emission identification. From our observations we identify a uniform sample of EELGs, investigating their physical properties and comparing our populations with KISS and SDSS populations \citep{brunker_2020,samonski2025, jiang}. We further pose the identified sample in this paper as a useful calibration population for the large number pea-like objects detected by the Dark Energy Spectroscopic Instrument’s \citep{desi2016} Survey (DESI).
+
+\textbf{Section~\ref{sec:obs}: Observations} outlines observational data and the source extraction pipeline used on candidate peas, including using corresponding HST photometry and a wide-field survey for population comparisons. We then outline population selection including AGN contaminant rejection and line ratio tools to identify EELGs from the parent sample of candidates in \textbf{Section~\ref{sec:pop}: EELG Identification}. From these identified peas, we investigate astrophysical properties in \textbf{Section~\ref{sec:ast}: Physical Properties}, including investigations on SFR, mass and metallicity. Finally, we discuss extremes of this population and survey limits in comparison to contemporary work in \textbf{Section~\ref{sec:dis}: Discussion}, concluding and outlining future work, including links to ELT-HARMONI in \textbf{Section~\ref{sec:conc}: Conclusion}.
+
+Distance-dependent quantities in this paper assume flat $\Lambda$CDM cosmology consistent with \cite{planck2020}; $H_0=66.66$ km s$^{-1}$ and $\Omega_m=0.3097$.
+
+\section{Observations \& Data Reduction}
+\label{sec:obs}
+\subsection{VLT-MUSE}
+\subsubsection{Observations}
+
+\begin{figure}
+ 	\includegraphics[width=8cm]{allsky.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{Survey region comparisons plotted on the \cite{gaiadr3} DR3 all-sky view on a Mollweide projection of ICRS equatorial coordinates; locations of the 32 MUSE-VLT core observations marked with white crosses, along with the MUSE-WIDE comparison fields.}
+    
+    % These regions plotted in comparison to the SDSS-main survey region, from which most Pea literature draws sources (see eg \cite{Cardamone, izotov_2016,yang_2016,Rhoads,samonski2025})}
+        \label{fig:allsky}
+\end{figure}
+
+\begin{figure*}
+ 	\includegraphics[width=15cm]{clusterplot.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{\cite{lupton2004} continuum preparation of the background-subtracted VLT-MUSE view of the cluster MACS0033-07 to illustrate typical observing field, integrated over Hubble WFC bands F77W (red), F555W (green) and F502W (blue). The plot provides 1D and 2D spectra, with red-band continuums for both a green pea (top) and DES galaxy (bottom); note the pea's extreme  [OII], H$\beta$ and [OII] and lack of stellar continuum compared to the older DES galaxy.}
+        \label{fig:clusterMUSE}
+\end{figure*}
+
+Between November 2017 and January 2018 VLT-MUSE observed over 30 hours \footnote{I will include an observations table in the final write-up of my report} of the cores of the most x-ray luminous clusters, constituting the \textsc{Kaleidoscopes} survey (ESO project 0100.A0792(A), PI: Edge). Each cluster observation consists of three sequentially imaged exposures of 970s each. Each exposure sees a 0.3arcsecond dither applied to minimise observational systematics, with exposures then stacked into an individual cube. These observations, part of a poor-weather-conditions proposal, are conducted in clear conditions but with widely varying seeing on [1.2,2.0] arcsecond. Each MUSE field covers a $1\times1$ arcmin footprint, producing a data cube (once reduced) with spectral range on $[4750,9350]\;$\AA$\;$on a wavelength grid of $1.25 \;$\AA$\;$pixel$^{-1}$. 
+
+Following similar methodology to \cite{fumigalli2017, jauzac, cerny2025}, the data are reduced by the European Southern Observatory (ESO) \texttt{esorex} pipeline \citep{weilbacher2020}, following the MUSE Data Reduction Pipeline User Manual \footnote{https://www.eso.org/sci/software/pipelines/muse/} with additional post-processing described in e.g. \cite{richard2021, lagatutta2022, cerny2025}; for clarity to the reader we summarise these here. The initial phase of the reduction involves the creation of master calibration products from raw exposures. This includes generating master bias and flat-field frames, a trace table to map the slitlet positions on the detector, a precise wavelength solution, and an estimate of the Line Spread Function (LSF) for each observing night. Additional illumination corrections are derived from twilight exposures and night-time internal flat-field calibrations. These calibration products are then applied to the raw science exposures, which are subsequently processed into non-interpolated pixel tables, a format that reduces processing cost without affecting the output product.
+
+
+At the pixel-table level, flux calibration and telluric correction are performed using observations of standard stars taken with the science frames. The data are corrected for differential atmospheric dispersion, and velocities are transformed to the solar system’s barycentric rest frame. For observations utilising Laser Guide Star Adaptive Optics, residual Raman-line flux is also fitted and subtracted. Each exposure is astrometrically aligned to a common World Coordinate System (WCS), defined by high-resolution ancillary imaging from the Hubble Space Telescope (HST) of the cluster. This alignment is achieved by cross-correlating MUSE data with HST F606W and F814W band imaging, providing a secondary flux normalisation by matching photometry in overlapping filter bands.
+
+
+Following these corrections, each calibrated pixel table is resampled into a data cube. During this process, a self-calibration routine is employed to correct for low-level ($\sim1\%$) flat-fielding systematics that manifest as a weaving pattern across the field of view. This procedure relies on an accurate measurement of the sky background within each slitlet. In crowded fields, the presence of bright cluster members and extended intra-cluster light (ICL) can severely bias this measurement. A sky mask is therefore generated by thresholding a deep continuum image (from HST or a preliminary MUSE white-light image) to exclude these bright sources from the self-calibration calculation.
+
+Once all individual exposures are processed into aligned, self-calibrated data cubes, they are combined into a final master cube. This combination is performed outside the standard pipeline using the \texttt{mpdaf} package. The process involves calculating an inverse-variance weighted average, incorporating a 3$\sigma$ clipping algorithm to reject remaining cosmic rays and other detector defects. Flux scaling factors, derived either from atmospheric transmission variations or from alignment with HST photometry, are applied to ensure a consistent flux scale across all exposures. The final step in the reduction sequence is the removal of residual sky-subtraction artefacts. This is accomplished using the Zurich Atmospheric Purge (ZAP, \cite{soto2016}) tool, which applies a Principal Component Analysis (PCA) to spectra in background regions of the data cube. By identifying and subtracting the principal components associated with sky emission residuals, ZAP significantly improves the quality of the final data product, particularly at longer wavelengths. This procedure also requires an object mask to ensure that the PCA is performed only on regions of clean sky. 
+
+From the \textsc{Kaleidoscopes} survey we select EELG candidates from 32 cluster data cubes; \textbf{Figure \ref{fig:allsky}} documents the all-sky position of these fields, along with the location of the two MUSE-WIDE fields used for population comparison.
+
+\subsubsection{Source Extraction}
+
+
+For the 32 datacubes processed, we led extraction of extreme line emitters on identifying the strongest visible emission line; for these extreme emitters these were [OIII], [H$\alpha$], [OII] and Ly$\alpha$ lines. Of this population, we aim to extract EELGs with strong visible [OIII] emission, indicating galaxies on local redshift with strongly ionizing pea-like properties. For each cube, continuum objects were masked and from the resulting data a boxcar search was performed along the wavelength axis~\footnote{This is a very technical description of how I would describe your 'manual source extraction' method - I am aware of how it's done in a couple of the CEA cluster papers where they collapse into 'Narrow Band Photometry' and SExtract from there - I am presuming this is the final pipeline method we will use?}. Objects with short, high SNR emission were flagged from this boxcar search and a resulting catalogue of emission-line candidates was produced; this left a catalogue of 205 total objects. This population of objects was then reduced into a series of sub-cubes, from which a gaussian ellipsoid was fitted around the 2 arcsecond radius-contained spaxels to identify a centroid (\textsc{Sextractor}, \cite{bertin1996}). With this corrected centroid identified, and since all objects are unresolved, the sub-cube was spatially collapsed around the MUSE PSF ellipsoid, producing a spectrum on  [4750,9350] $\AA$ binned on a wavelength grid of $1.25\;$ \AA$\;$pixel$^{-1}$. \textbf{Figure \ref{fig:clusterMUSE}} demonstrates an artificial colour MUSE continuum view of example cluster MACS0033-07 with 1D and 2D spectra of both an example EELG and an older cluster-member galaxy identified from the Dark Energy Survey (DES, \cite{desdr1}) Data Release 1 catalogue to illustrate the difference in spectral features.
+
+From these spectra, the [OIII] doublet was identified with a matched filter search along the observed wavelength axis. Once identified, the [OIII]$_{5007}$ line was used to measure the redshifts of the 172 filter-selected sources, and spectra failing the search were manually classified into doublet-containing ([OII]-likely) or doublet-missing (LyA-likely) sources. \textbf{Figure \ref{fig:zdist}} documents the objective and cluster-reference redshift distributions of all sources, including the [OIII] selected emitters, which cover a redshift range $0.1<z<0.6$. This is notably deeper than traditional green pea catalogues, owing to both the spatial bias in the sample from gravitational infall to clusters by nearby members, and the ability to detect [OIII] out to $\approx9000 \AA$, in comparison to the photometric filter-selected objects of the SDSS \cite{cardamone, jiang, yang_2016, samonski2025} or KISS \cite{brunker_2020} EELG surveys. 
+
+
+\begin{figure}
+ 	\includegraphics[width=8cm]{redshift_ofsources.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{Distribution of all source redshifts, with magnified plot on [OIII] selection region. Note that the the distribution of lensed objects is distorted by a 12-lensed image in the S780 cluster; the number of lensed sources is otherwise small.}
+
+        \label{fig:zdist}
+\end{figure}
+
+
+\subsubsection{Spectral Catalogue Creation}
+\label{sec:cat}
+
+From this selection of [OIII] containing spectra, we transpose each spectra to rest-frame wavelength conduct individual spectral fitting on the lines identified in Table~\ref{tab:lines}. For non-doublet lines, each line is fit on a 50 $\AA$ window with a gaussian profile using \cite{marquardt1963} least-square fitting. For fitting windows containing nearby resolved lines (ie resolved doublets and close lines), all other lines are masked to avoid overestimating the continuum; for unresolved doublets a double gaussian model was used to fit both lines simultaneously to accurately measure the flux of both lines. In each double-gaussian case the spectra have suitably precise wavelength resolution to identify each peak, and the $\approx50$ available data points is still suitably large compared to the six degree of freedom double gaussian model for a reliable fit. \ref{fig:peas} demonstrates the individual rest-frame spectra with corresponding WFC3-F775W band MUSE continuum images, while \ref{fig:fitting} demonstrates example line fitting models for a purple grape in the RXJ0232-44 cluster. Given the degeneracy of these gaussian parameters, the corresponding fits produce suitably diagonal covariances, which are used to estimate the error on the fit flux, centroid and continuum. 
+
+\begin{figure}
+ 	\includegraphics[width=8cm]{specplot.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{Select extreme green pea rest spectra from those extracted with WFC3-F775W band MUSE continuum images in order of [OIII] flux; key emission lines highlighted. From top down: 1) MACS27+26B blueberry-like pea with extreme observed equivalent width at EW[OIII]$=4700\pm200$; 2) S26 archetypical pea with observed extreme EW[OIII]$=7200\pm300$; 3) RXJ0232-44 Purple grape with very high [OII] flux; 4) MACS33-07 pea with largest observed [OIII] flux $=6.1\pm0.8\times10^{-17}$erg/$\AA$ s cm$^2$.}
+        \label{fig:peas}
+\end{figure}
+
+\begin{figure*}
+ 	\includegraphics[width=18cm]{fitting.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{Example line fitting demonstration on a grape-like EELG from the RXJ0232-44 cluster, with MUSE continuum generated over the HST WFC3 F689M filter, covering the galaxy's $H\beta$ and [OIII] doublet at observed wavelength. Note the galaxy's lack of stellar continuum and pronounced Balmer series and oxygen forbidden emission. We demonstrate doublet fitting for the [OII] line pair, which is unresolved in MUSE for all peas in this work.  }
+        \label{fig:fitting}
+\end{figure*}
+
+\begin{figure}
+ 	\includegraphics[width=8cm]{calibration.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{Flux extinction calibration metrics histogrammed by correction method. Top left shows distribution of E(B-V) values as discussed in section \ref{sec:cat}; note the expected lognormal distribution and the tighter distribution on $H\alpha/H\beta$ expected from the increased SNR of the calculation. Also plotted are the histogrammed corrected Balmer decrement flux ratio and (fitting calibrator) [OIII] doublet flux ratio, all of which follow the expected ratios and Gaussian distributions as discussed.}
+        \label{fig:red}
+\end{figure}
+
+We correct the catalogues of emission line fluxes for dust extinction using Balmer decrement. Assuming these hydrogen lines are emitted from the optically thick H$_{\mathrm{II}}$ regions surrounding the ionized nebulae within these galaxies obeying case B recombination, at temperature $T\approx10^{5}$ K for electron density $n_e\approx10^2$ we take intrinsic ratios $\mathrm{H}\alpha/\mathrm{H}\beta=2.863$ and $\mathrm{H}\gamma/\mathrm{H}\beta=0.406$ \citep{osterbrock}. Adopting the \cite{calzetti} starburst extinction curve, we calculate a nebular colour excess of 
+\begin{equation}
+E(B-V)_{\mathrm{neb}} =  \frac{ 2\log_{10} [(f_{\mathrm{H}\alpha }/f_{\mathrm{H}\beta})/2.863]}{5[k(\mathrm{H}\beta)-k(\mathrm{H}\alpha)]}
+\end{equation}
+for sources with visible $\mathrm{H}\alpha/$ emission, while we use
+\begin{equation}
+E(B-V) _{\mathrm{neb}}  =  \frac{ 2\log_{10} [(f_{\mathrm{H}\beta }/f_{\mathrm{H}\gamma })/0.406]}{5[k(\mathrm{H}\gamma)-k(\mathrm{H}\beta)]}
+\end{equation}
+for those without, of those which have at least an SNR of 5 on their $\mathrm{H}\gamma$ flux, where $k(\mathrm{H}\alpha)=3.33$, $k(\mathrm{H}\beta)=4.60$m, and $k(\mathrm{H}\gamma)=5.13$ are the specific extinction curve values. We document the reddening correction distribution in \textbf{Figure~\ref{fig:red}}; it follows the dust reddening for these galaxies is small, with median correction 0.286 mag. For galaxies lacking strong detection on their $\mathrm{H}\gamma$ line, we apply the median correction. We similarly plot the [OIII]$_{5007}/$[OIII]$_{4959}$ diagnostic, which follows a tight distribution around the expected ratio of $3$. This produced a catalogue of extinction-corrected fluxes for 172 objects, from which we select EELGs in \textbf{Section~\ref{sec:pop}}
+
+\subsubsection{MUSE-WIDE}
+For discussion on survey depth and population comparisons, we choose the \cite{musewide_description} MUSE-WIDE survey, a VLT-MUSE 3D blind spectroscopic survey of emission line objects in the COSMOS \citep{cosmos} and GOOD-S \citep{goods} fields, highlighted in green as part of \textbf{Figure~\ref{fig:allsky}}. The survey provides ideal selection depth comparison for emission line objects, and like this investigation is designed as a blind spectroscopy-first selection of emission sources without photometric preselection \citep{herenz2017}. The MUSE-wide survey also covers a mosaic of $1\times1$ arcmin observing fields, in this case an area of 100 of these panels. We utilise their catalogue of emission line objects, which is compiled using the \cite{lsdcat} 3D matched filter integral field source extractor \texttt{LSDCAT}, designed for blind emission line source extraction; we aim to evaluate the biases of our inspection methodology against this blind extraction method. This catalogue does not provide estimates of the equivalent widths of detected lines; we estimate these using the \cite{skelton2017} cross-matched CANDELS photometry of each source by identifying the WFC3 band corresponding to the line detection, subtracting the contained emission line flux from the total photometric flux to generate an estimate of the underlying stellar continuum from which to calculate the equivalent width. For like-for-like survey comparison, we select only from [OIII] detected sources. We provide survey comparison and population discussions in \textbf{Section~\ref{sec:disc}}.
+
+\subsection{Legacy Photometry}
+
+\subsubsection{Hubble Space Telescope}
+Visible and NIR imaging is obtained from the \textit{Hubble Space Telescope} (\textit{HST}) archives, querying the Mikulski Archive for Space Telescopes (MAST) portal. For each source in our catalogue, we query available imaging on a 1 arcminute spiral search from the Advanced Camera for Surveys (ACS) and the Wide Field Camera 3 (WFC3) in both its UVIS and IR channels. The specific filters targeted were F435W, F606W, and F814W for ACS/WFC, and F225W, F275W, F125W, and F160W for WFC3/UVIS and WFC3/IR, respectively. We prioritise calibrated, drizzled science frames to ensure the use of geometrically corrected and combined data products. The query criteria required a minimum exposure time of 100 seconds, excluding short or failed observations; for each required band, the first suitable data product returned by the query was used for analysis.
+
+\subsubsection{Spitzer Space Telescope}
+Archival infrared imaging is sourced from the \textit{Spitzer Space Telescope} Heritage Archive (SSHA), accessed via the NASA/IPAC Infrared Science Archive (IRSA). We use the Simple Image Access (SIA) protocol to query for available data within a 5 arcminute radius of each source position. Our search targets Level 2 calibrated data products from the Infrared Array Camera (IRAC) and the Multiband Imaging Photometer for Spitzer (MIPS). Specifically, we retrieve mosaics for IRAC channels 1 and 2 (corresponding to 3.6 and 4.5 $\mu$m) and MIPS channel 1 (24 $\mu$m). The query was filtered to select only `science` designated data products, ensuring the use of final, calibrated mosaics for photometric measurements.
+
+\subsubsection{Source Extraction}
+
+\textbf{Figure~\ref{fig:HST}} demonstrates the HST-Spitzer view of the A209 cluster, identifying example strong line emitters. We perform aperture photometry using the \texttt{photutils} package, an \texttt{Astropy} affiliated library \citep{photutils}. For each science image, we employ the corresponding WCS information to transform the ICRS celestial coordinates into the corresponding pixel positions.
+
+We employ fixed-aperture photometry for all measurements. A circular aperture with a radius of 2.0 arcseconds, chosen to maximise the signal-to-noise each object, was defined at the gaussian ellipsoid centre of each source. For HST data, the local sky background was estimated on an object-by-object basis using a circular annulus centred on the source, with an inner radius of 3.0 arcseconds and an outer radius of 5.0 arcseconds; this was the maximum outer radius to prevent background contamination for objects near crowded regions. The flux within this annulus was used to determine the local background level, which was subsequently subtracted from the source aperture flux. Given the lower spatial precision of Spitzer data, we employ local segmentation background subtraction using \cite{profound} \texttt{ProFound}-generated local noise maps, from which we then apply a circular 2.0 arcsecond aperture to calculate the object flux.
+
+The final flux values were converted to units of microjanskys ($\mu$Jy). For \textit{HST} data, this conversion was performed using the `PHOTFLAM` and `PHOTPLAM` keyword values present in the FITS headers, which define the AB magnitude zeropoint. For \textit{Spitzer} data, the conversion from the native units of MJy/sr was achieved using the `FLUXCONV` keyword in conjunction with the pixel area derived from the image WCS. The resulting flux measurements for each source across all available bands were compiled to the image catalogue with those identified in MUSE source extraction.
+
+
+\begin{figure}
+ 	\includegraphics[width=8cm]{a209_viaHST.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{The \citep{lupton2004} colour view of the cluster A209 through legacy HST imaging. Spitzer 3.6 micron contours overplotted in white. We highlight left-to-right in subplots candidate green pea, AGN and purple grape galaxies. Note the EELGs appear near-invisible due to their lack of stellar continuum, while the AGN's extreme [OIII] line ratio dominates the WFC-606W band.}
+        \label{fig:HST}
+\end{figure}
+
+\section{EELG Identification and analysis}
+\label{sec:pop}
+
+In order to select extreme emission candidates from our identified population of star-forming [OIII] galaxies, in this section we present an investigation of spectral properties. Prior to the determination of any metallicities or spectral fitting, we utilise the common gas metallicity and ionization parameters O32 and R23. These two parameters identify the ratio and combination of the [OIII], H$\beta$ and [OII] lines as strong line gas proxies, most useful in candidates lacking auroral [OIII] detection. We use the common definitions
+\begin{equation}
+R23 = \frac{F_{\mathrm{[OIII]}\lambda5007}+ F_{\mathrm{[OIII]}\lambda4959}+ F_{\mathrm{[OII]}\lambda3729}+ F_{\mathrm{[OII]}\lambda3726}}{ F_{\mathrm{H}\beta} }
+\end{equation}
+for metallicity tracer R23 and 
+\begin{equation}
+O32 = \frac{F_{\mathrm{[OIII]}\lambda5007}+ F_{\mathrm{[OIII]}\lambda4959}}{ F_{\mathrm{[OII]}\lambda3729}+ F_{\mathrm{[OII]}\lambda3726}}
+\end{equation}
+for ionization tracer O32, propagating errors directly from measured fluxes. Although formulation of O32 differs as to whether the $\mathrm{[OIII]}\lambda4959$ flux is included, we opt to use the more common definition which excludes it.
+
+
+\subsection{Population Selection}
+
+\subsection{Spectral Analysis}
+
+
+\begin{figure}
+ 	\includegraphics[width=8cm]{populations.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{EELG Selection criteria for the sample of 137 ELG candidates extracted from the fields of all 32 clusters. Note the broad [OIII]-$H\beta$ positive correlation in equivalent widths observed, following that of observed fluxes.}
+        \label{fig:populations}
+\end{figure}
+
+\begin{figure}
+ 	\includegraphics[width=8cm]{bpt_vel_noPeas1.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{BPT diagram for all H$\alpha$ emission objects identified in survey. Confirmed EELGs (Purple Grapes) outlined in grey, with transition candidate spectrally inspected to demonstrate lack of H$\beta$ broadening or Seyfert-like spectral properties around the [OIII] rest emission. As is traditional, the solid black line plots the theoretical \cite{kewley2001} starburst limit, and the empirical \cite{kauffman2003} AGN-starburst transition region. Note the non-extreme-emission AGN-like objects identified exhibit larger $H\beta$ line broadening than the population of dwarf-like objects in the starburst region. }
+        \label{fig:bpt}
+\end{figure}
+
+\begin{figure}
+ 	\includegraphics[width=8cm]{R23O32.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{Spectral tracers R32 and O23 plotted in confirmed Green Peas from identified sample, with [OIII]$_{\ambda5007}$ equivalent width coloured. Note the galaxies broadly follow two distributions in O32: younger, highly ionised peas in very early Wolf-Rayet dominanted starburst lie in the \cite{jiang} $\log_{10}$O$32>0.6$ region, while older [OII] emission dominated stars are unable to totally expel O$^+$ and consequently have lower O32. }
+        \label{fig:tracers}
+\end{figure}
+
+\section{Physical Properties}
+\label{sec:ast}
+
+\subsection{Metallicity Determination}
+
+\subsection{Star Formation and Gas Dispersion}
+
+\subsection{IR Emission}
+
+\begin{figure}
+ 	\includegraphics[width=8cm]{irac.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{IR emission versus [OIII] flux for Green Pea candidates for Spitzer IRCam channels 1 and 2. The upper panel shows proportional channel flux with corresponding metallicites plotted while the lower panel shows individual band fluxes. Note the difference in rate of change of IR flux across bands due to 4.6 micron emission dominated by nebular emission from highly star forming galaxies. Note also the use of this plot as an AGN tracer, where proportionally higher 3.6 micron flux indicates possible dusty torus AGN activity.}
+        \label{fig:spitzer}
+\end{figure}
+\begin{figure}
+ 	\includegraphics[width=8cm]{mcities.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{}
+        \label{fig:mcities}
+\end{figure}
+
+\begin{figure*}
+ 	\includegraphics[width=16cm]{physicals.png}
+ 	\captionsetup{justification=Justified}
+ 	\caption{}
+        \label{fig:physicals}
+\end{figure*}
+
+\section{Discussion}
+\label{sec:dis}
+\subsection{Comparison to MUSE-WIDE ELGs}
+\subsection{Comparison to SDSS Peas}
+\subsection{Extreme Property Candidates}
+\subsubsection{S26-4d46m35pt34s-20d26m04pt362s}
+ $12+\log_{10}(O/H)=7.52\pm0.03$
+
+\section{Conclusions}
+\label{sec:conc}
+
+
+
+\section*{Acknowledgements}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \section*{Data Availability}
+
+ 
+% The inclusion of a Data Availability Statement is a requirement for articles published in MNRAS. Data Availability Statements provide a standardised format for readers to understand the availability of data underlying the research results described in the article. The statement may refer to original data generated in the course of the study or to third-party data analysed in the article. The statement should describe and provide means of access, where possible, by linking to the data or providing the required accession numbers for the relevant databases or DOIs.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%% REFERENCES %%%%%%%%%%%%%%%%%%
+
+% The best way to enter references is to use BibTeX:
+
+\bibliographystyle{mnras}
+\bibliography{example} % if your bibtex file is called example.bib
+
+
+% Alternatively you could enter them by hand, like this:
+% This method is tedious and prone to error if you have lots of references
+%\begin{thebibliography}{99}
+%\bibitem[\protect\citeauthoryear{Author}{2012}]{Author2012}
+%Author A.~N., 2013, Journal of Improbable Astronomy, 1, 1
+%\bibitem[\protect\citeauthoryear{Others}{2013}]{Others2013}
+%Others S., 2012, Journal of Interesting Stuff, 17, 198
+%\end{thebibliography}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%% APPENDICES %%%%%%%%%%%%%%%%%%%%%
+
+\appendix
+
+% \section{BLANK}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Don't change these lines
+\bsp	% typesetting comment
+\label{lastpage}
+\end{document}
+
+% End of mnras_template.tex
