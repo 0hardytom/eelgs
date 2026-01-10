@@ -10,9 +10,15 @@ __This repository contains all my code and research for my MPhys Project, comple
 
 ## Repository Structure
 
--   `latex/`: Holds LaTeX backups for the project. OCT25: contains Literature Review
--   `notebooks/`: Contains Jupyter notebooks, Python scripts, and meeting notes for data analysis and exploration.
-    -   `week0/`, `week1/`, ...: Meeting notes and summaries organized by week.
-    -   `week2/`: Contains the primary analysis scripts (`IFU_tools.py`) and notebooks.
--   `papers/`: A collection of relevant research papers and literature.
--   `src/`: Source code for the tools developed during this project.
+*   `cubes/`: Contains data cubes used in the analysis. Not Tracked
+*   `latex/`: Contains LaTeX source files for papers and reports related to this project.
+    *   `eelgs_interim/`: Interim report.
+    *   `litreview/`: Literature review documents.
+*   `notebooks/`: Contains Jupyter notebooks and Python scripts for data analysis.
+    *   `epiph/`, `mich/`: Week-By-Week Project Progress
+    *   `xmas/`, Work Conducted over christmas.
+*   `papers/`: A collection of relevant scientific papers and pre-prints.
+*   `slides/`: Presentations and slides for group meetings or conferences.
+*   `src/`: Source code for the project.
+    *   `ifu_tools/`: A Python module with tools for analyzing Integral Field Unit (IFU) data.
+    *   `datref/`: Reference data files.
