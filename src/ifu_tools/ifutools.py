@@ -109,6 +109,8 @@ class museCube:
         'nii6548':  6548.05,
         'sii6716':  6716.44,
         'sii6731':  6730.82,
+        'nev3426': 3426.00,
+        'fevii3760': 3760.00,
 
         # --- Helium Lines ---
         'heii4686': 4685.68,
@@ -148,6 +150,8 @@ class museCube:
         'nii6548':  r'[NII] $\lambda$6548',
         'sii6716':  r'[SII] $\lambda$6716',
         'sii6731':  r'[SII] $\lambda$6731',
+        'nev3426':  r'[NeV] $\lambda$3426',
+        'fevii3760':r'[FeVII] $\lambda$3760',
 
         # --- Helium Lines (not forbidden) ---
         'heii4686': r'HeII $\lambda$4686',
@@ -1045,7 +1049,7 @@ class Candidates:
         if current_key: # Save the last block
             self._data[current_key]['lines'] = block_lines
         
-        self._keys_corrected = ['../../../cubes/'+(a.replace('-','m')).replace('+','p').lower()+'_COMBINED_CUBE_MED_FINAL.fits' for a in self.keys()]
+        self._keys_corrected = ['/Volumes/Expansion/exp_thardy/cubes/'+(a.replace('-','m')).replace('+','p').lower()+'_COMBINED_CUBE_MED_FINAL.fits' for a in self.keys()]
 
 
     def keys(self):
@@ -1160,7 +1164,7 @@ class Candidates:
         
         return rebinned_spectra_dict
         
-def get_fromIFU(candidate, extras=False, locpref = '../../../cubes/'):
+def get_fromIFU(candidate, extras=False, locpref = '/Volumes/Expansion/exp_thardy/cubes/'):
     cluster = candidate['name']
     print(cluster)
     loc = locpref+cluster+'_COMBINED_CUBE_MED_FINAL.fits'
