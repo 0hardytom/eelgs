@@ -100,7 +100,9 @@ wandb/
 *.fits
 notebooks/mich/week5-6/dat
 notebooks/mich/**/dat
-notebooks/xmas/
+notebooks/xmas/**/dat
+notebooks/xmas/**/spec
+
 
 dat/
 figs/
