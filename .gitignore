@@ -103,6 +103,7 @@ notebooks/mich/**/dat
 notebooks/xmas/**/dat
 notebooks/xmas/**/spec
 
+notebooks/**/cigale
 
 dat/
 figs/
