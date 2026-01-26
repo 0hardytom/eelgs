@@ -1,0 +1,7 @@
+to use qtclassify:
+
+python line_classification_GUI_pyqtgraph_py3.py -id /Volumes/Expansion/exp_thardy/cubes_bksubtracted/a141_COMBINED_CUBE_MED_FINAL_CSUB.fits -isn /Volumes/Expansion/exp_thardy/cubes_snr/a1test.fits -c /Volumes/Expansion/exp_thardy/catalogues/a1test.fits -o test.cat -c_X X_PEAK_SN -c_Y Y_PEAK_SN -c_Z Z_PEAK_SN
+
+to use LSDcat
+
+lsd_cat_search.py -i cubes_bksubtracted/a141_COMBINED_CUBE_MED_FINAL_CSUB.fits -S 1 -N 2 -c a1test.cat --tabvalues I,ID,X_PEAK_SN,Y_PEAK_SN,Z_PEAK_SN,DETSN_MAX --overwrite --segcube cubes_snr/a1test.fits
