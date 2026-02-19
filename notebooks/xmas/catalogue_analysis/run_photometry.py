@@ -28,7 +28,7 @@ from regions import PolygonSkyRegion, CircleSkyRegion
 from regions.core import PixCoord
 
 # --- Configuration ---
-INPUT_CSV = 'peas.csv'
+INPUT_CSV = 'allsources.csv'
 OUTPUT_CSV = 'photometry_results.csv'
 DATA_DIR = 'phot-temp'
 APERTURE_RADIUS_ARCSEC = 2.0
@@ -38,9 +38,9 @@ SKY_ANNULUS_OUTER_ARCSEC = 6.0
 # Band definitions: (query_name, instrument, archive)
 BANDS = {
     # HST - Using common filters for ACS and WFC3
-    'HST_F218W': ('F218W', 'UVIS', 'MAST'),
-    'HST_F225W': ('F225W', 'UVIS', 'MAST'),
-    'HST_F275W': ('F275W', 'UVIS', 'MAST'),
+    # 'HST_F218W': ('F218W', 'UVIS', 'MAST'),
+    # 'HST_F225W': ('F225W', 'UVIS', 'MAST'),
+    # 'HST_F275W': ('F275W', 'UVIS', 'MAST'),
     'HST_F435W': ('F435W', 'ACS', 'MAST'),
     'HST_F606W': ('F606W', 'ACS', 'MAST'),
     'HST_F814W': ('F814W', 'ACS', 'MAST'),
@@ -49,17 +49,8 @@ BANDS = {
     # Spitzer - Using channel names for IRAC and MIPS
     'Spitzer_I1_3.6': ('1', 'IRAC', 'Spitzer'),
     'Spitzer_I2_4.5': ('2', 'IRAC', 'Spitzer'),
-    'Spitzer_I4_8.0': ('4', 'IRAC', 'Spitzer'),
     'Spitzer_M1_24': ('1', 'MIPS', 'Spitzer'),
-    # Swift UVOT
-    'Swift_UVW2': ('UVW2', 'UVOT', 'Swift'),
-    'Swift_UVM2': ('UVM2', 'UVOT', 'Swift'),
-    'Swift_UVW1': ('UVW1', 'UVOT', 'Swift'),
-    # XMM-Newton OM
-    'XMM_UVW2': ('UVW2', 'OM', 'XMM'),
-    'XMM_UVM2': ('UVM2', 'OM', 'XMM'),
-    'XMM_UVW1': ('UVW1', 'OM', 'XMM'),
-}
+    'Spitzer_M2_70': ('2', 'MIPS', 'Spitzer')}
 
 # Suppress verbose warnings for a cleaner output
 warnings.simplefilter('ignore', category=AstropyWarning)
