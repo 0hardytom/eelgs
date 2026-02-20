@@ -28,7 +28,7 @@ from regions import PolygonSkyRegion, CircleSkyRegion
 from regions.core import PixCoord
 
 # --- Configuration ---
-INPUT_CSV = 'allsources.csv'
+INPUT_CSV = 'allsourcesNOSTACK.csv'
 OUTPUT_CSV = 'photometry_results.csv'
 DATA_DIR = 'phot-temp'
 APERTURE_RADIUS_ARCSEC = 2.0
