@@ -15,6 +15,7 @@ from astropy.io import ascii, fits
 from astropy import units as u
 from astropy.table import Table, vstack, hstack
 from astropy.modeling import models, fitting
+import concurrent.futures
 
 
 # from calculate_jiang19_metallicity import calculate_metallicity_jiang19 as cjm19
@@ -38,6 +39,8 @@ class museCube:
         ### attributes ###
         self.loud = loud
         self.centre = SkyCoord(cluster_ra*u.deg, cluster_dec*u.deg,frame='icrs')
+        if self.loud:
+            print(self.centre.ra.deg, self.centre.dec.deg)
         self.path = path
         self.title = self._get_title()
         self.spectra = {}
@@ -235,7 +238,7 @@ class museCube:
     def extract_spectrum(self, ra, dec, radius, redshift, corrRADEC = False):
         if not corrRADEC:
             centre = (dec, ra)
-            # print(centre)
+            print(centre)
             spec = self.cube.aperture(centre, radius, is_sum=True)
             return spec      
 
@@ -604,7 +607,7 @@ class museCube:
         
         # obj_spectrum, newra,newdec = self.extract_spectrum(radec[0], radec[1], radius=rad, redshift=z_guess)
         obj_spectrum = self.extract_spectrum(radec[0], radec[1], radius=rad, redshift=z_guess)
-        self.spectra[id] = obj_spectrum
+        # self.spectra[id] = obj_spectrum
 
         # radec = (newra,newdec)
         
@@ -615,7 +618,7 @@ class museCube:
             obj_z = z_guess
         
         rest_spectrum = self.deredshift_spectrum(obj_spectrum, obj_z)
-        self.rest_spectra[id] = rest_spectrum
+        # self.rest_spectra[id] = rest_spectrum
 
         # obj_spectrum.write(f'spec/{self.title}/{id}_obs_spec.fits')
         # rest_spectrum.write(f'spec/{self.title}/{id}_rest_spec.fits')   
@@ -631,9 +634,9 @@ class museCube:
             'lensed': lensed,
             'name': id
         }
-        self.ex_table.add_row(row_data)
+        # self.ex_table.add_row(row_data)
         
-        return id, radec, obj_spectrum, rest_spectrum
+        return id, radec, obj_spectrum, rest_spectrum, row_data
     
     def fit_oii_doublet(self, dered_spectra, plot=False, id=None, verbose=False):
         lmin, lmax = 3715, 3740
@@ -793,7 +796,7 @@ class museCube:
             linefits.append(linefit)
         return linefits
 
-    def _update_table_with_fit_results(self, pxy, linefits):
+    def _update_table_with_fit_results(self, pxy, linefits, rest_spectrum_id):
         locd_row = pxy
         
         # Store basic fit results
@@ -801,7 +804,7 @@ class museCube:
             rest_wl = self.rest_lambdas.get(linename)
             linefit = linefits[i]
 
-            rest_spectrum = self.rest_spectra.get(id)
+            # rest_spectrum = self.rest_spectra.get(rest_spectrum_id)
 
             # resn = rest_spectrum.wave.get_step() if rest_spectrum else 1
             resn = 0.7 
@@ -821,7 +824,7 @@ class museCube:
                 locd_row[linename + '_ew_err'] = np.nan
 
     def _correct_flux(self, pxy, donothing=False):
-        self.raw_table = self.ex_table.copy()
+        # self.raw_table = self.ex_table.copy()
         # ebv_corr = lr.get_ebv(pxy['hbeta_flux'], pxy['hgamma_flux'])
         ebv_corr = 0.286
         flux_keys = [key for key in self.ex_table.colnames if key.endswith('_flux')]
@@ -881,17 +884,21 @@ class museCube:
         self._r23(PXY)
         return True
     
-    def table_management(self, ID, LINEFITS, ANGDISP):
-        pxy = self.ex_table.loc[ID]
-        pxy['angdisp'] = ANGDISP*3600 # now in arcseconds
-        self._update_table_with_fit_results(pxy, LINEFITS)
+    def table_management(self, pxy, linefits, angdisp, rest_spectrum_id):
+        # pxy = self.ex_table.loc[ID]
+        pxy['angdisp'] = angdisp*3600 # now in arcseconds
+        self._update_table_with_fit_results(pxy, linefits, rest_spectrum_id)
+        
+        # Create a raw version before flux correction
+        raw_pxy = pxy.copy()
+
         self._correct_flux(pxy)
         self._update_metallicities(pxy)
         self._avg_velo_disps(pxy)
-        return True
+        return pxy, raw_pxy
 
     def pick_target(self, coords, z_guess, rad, plot=True, foreground=0, cluster_member=0, lensed=0):
-        id, radec, obj_spectrum, rest_spectrum = self._prepare_and_extract_spectrum(coords, z_guess, rad, foreground, cluster_member, lensed)
+        id, radec, obj_spectrum, rest_spectrum, row_data = self._prepare_and_extract_spectrum(coords, z_guess, rad, foreground, cluster_member, lensed)
         angdisp = np.sqrt((radec[0]-self.centre.ra.deg)**2+(radec[1]-self.centre.dec.deg)**2)
         
         if plot:
@@ -904,10 +911,10 @@ class museCube:
             self.plot_all_lines_on_spectrum(rest_spectrum, linefits, id, radec[0], radec[1])
             self.balmer_diagnostic_plot(rest_spectrum, balmer_linefits, id)
             
-        self.table_management(id,linefits, angdisp)
+        # self.table_management(id,linefits, angdisp)
+        final_row, raw_row = self.table_management(row_data, linefits, angdisp, id)
 
-        # self.table_management(id,linefits)
-        return True
+        return id, rest_spectrum, final_row, raw_row
 
     def stack_and_fit_spectra(self, plot=True):
         if not self.rest_spectra:
@@ -989,27 +996,65 @@ class museCube:
         self.stack_and_fit_spectra(plot=True)
         self.write_table()
 
-    def process_multiple_candidates(self, coord_table, zcl=np.nan):
+    def _process_single_candidate(self, candidate_row):
+        """Helper method to process one candidate. Designed to be called by the parallel executor."""
+        csv_coords = SkyCoord(candidate_row['ra'] * u.deg, candidate_row['dec'] * u.deg, frame='icrs')
+        z_estimate = (candidate_row['OIII_est'] / 5006.84) - 1
+        
+        description = ''
+        if 'Description' in candidate_row.colnames:
+            description = candidate_row['Description'].lower()
 
-        all_coords = SkyCoord(coord_table['ra'] * u.deg,
-                              coord_table['dec'] * u.deg,
-                              frame='icrs')
-        for i in range(len(all_coords)):
-            csv_coords = all_coords[i]
-            z_estimate = (coord_table['OIII_est'][i]/5006.84) -1
+        is_foreground = 1 if 'foreground' in description else 0
+        is_cluster_member = 1 if 'cluster member' in description else 0
+        is_lensed = 1 if 'lensed' in description else 0
+
+        # The pick_target method does all the work for one candidate
+        id, rest_spectrum, final_row, raw_row = self.pick_target(
+            csv_coords, z_estimate, 1,
+            foreground=is_foreground, 
+            cluster_member=is_cluster_member, 
+            lensed=is_lensed
+        )
+        return id, rest_spectrum, final_row, raw_row
+
+    def process_multiple_candidates(self, coord_table, zcl=np.nan, max_workers=None):
+        """
+        Processes multiple candidates from a table in parallel.
+        
+        :param coord_table: An astropy Table with candidate information.
+        :param zcl: The cluster redshift.
+        :param max_workers: The maximum number of processes to use. Defaults to the number of CPU cores.
+        """
+        all_results = []
+        
+        # Use ProcessPoolExecutor for parallel processing
+        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all candidates to the executor
+            future_to_candidate = {executor.submit(self._process_single_candidate, row): row for row in coord_table}
             
-            description = ''
-            if 'Description' in coord_table.colnames:
-                description = coord_table['Description'][i].lower()
+            for future in concurrent.futures.as_completed(future_to_candidate):
+                candidate = future_to_candidate[future]
+                try:
+                    result = future.result()
+                    all_results.append(result)
+                except Exception as exc:
+                    print(f'Candidate {candidate["ra"]},{candidate["dec"]} generated an exception: {exc}')
 
-            is_foreground = 1 if 'foreground' in description else 0
-            is_cluster_member = 1 if 'cluster member' in description else 0
-            is_lensed = 1 if 'lensed' in description else 0
+        # Unpack results and populate instance attributes
+        final_rows = []
+        raw_rows = []
+        for id, rest_spectrum, final_row, raw_row in all_results:
+            self.rest_spectra[id] = rest_spectrum
+            final_rows.append(final_row)
+            raw_rows.append(raw_row)
 
-            self.pick_target(csv_coords, z_estimate, 1,
-                             foreground=is_foreground, 
-                             cluster_member=is_cluster_member, 
-                             lensed=is_lensed)
+        # Create final tables from the collected rows
+        if final_rows:
+            self.ex_table = vstack([Table(rows=[row], names=self.column_names) for row in final_rows])
+            self.raw_table = vstack([Table(rows=[row], names=self.column_names) for row in raw_rows])
+        
+        # Perform stacking and final table adjustments
         self.stack_and_fit_spectra(plot=True)
         self.write_table()
 
@@ -1201,11 +1246,11 @@ class QT_Candidates:
         for k in self._leadlines:
             kyz.append((k['dir'],k['key']))
         self._keys.append(list(set(kyz)))
-        self._keys_corrected = ['/Volumes/Expansion/exp_thardy/'+d+'/'+k+'_COMBINED_CUBE_MED_FINAL.fits' for d,k in self.keys()]
+        self._keys_corrected = ['/Volumes/Expansion/exp_thardy/'+d+'/'+k+'_COMBINED_CUBE_MED_FINAL.fits' for d,k in self.keys()[0]]
         self._leadlines_OIII = self._leadlines[self._leadlines['Redshift']<0.82]
 
     def keys(self):
-        return self._keys
+        return self._keys[0]
     
     def keys_corrected(self):
         return self._keys_corrected
@@ -1244,7 +1289,7 @@ class QT_Candidates:
         raw_tables = {}
         spectra = {}
         for i,key in enumerate(self.keys_corrected()):
-            name = self.keys()[i]
+            name = self.keys()[i][1]
             print(f'running {name}')
             tab, z, crvals = self.get_candidate(name)
 
@@ -1263,7 +1308,3 @@ class QT_Candidates:
             self.combined_table_raw.write('allsources_uncorrected.csv', overwrite=True)
 
         self.spectra = spectra
-    
-    
-
-
