@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpdaf.obj import Cube
 from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
 import sys
 import os
 import plotfancy as pf
@@ -14,6 +15,7 @@ from astropy.io import ascii, fits
 from astropy import units as u
 from astropy.table import Table, vstack, hstack
 from astropy.modeling import models, fitting
+
 
 # from calculate_jiang19_metallicity import calculate_metallicity_jiang19 as cjm19
 sys.path.append('../../')
@@ -1183,3 +1185,84 @@ def get_fromIFU(candidate, extras=False, locpref = '/Volumes/Expansion/exp_thard
     freq = np.linspace(rest_spectrum.get_start(), rest_spectrum.get_end(), rest_spectrum.shape[0])
 
     return galloc, cube_ift, cluster, spectrum_o, rest_spectrum
+
+class QT_Candidates:
+    def __init__(self, file_path: str = 'leadlines.csv'):
+        self.file_path = file_path
+        # self._data = {}
+        self._keys = []
+        self.analysed = False # ticker for coadd 
+        self._initialise_file()
+    
+    def _initialise_file(self):
+        self._leadlines = ascii.read('leadlines.csv')
+        kyz = []
+        for k in self._leadlines:
+            kyz.append((k['dir'],k['key']))
+        self._keys.append(list(set(kyz)))
+        self._keys_corrected = ['/Volumes/Expansion/exp_thardy/'+d+'/'+k+'_COMBINED_CUBE_MED_FINAL.fits' for d,k in self.keys()]
+        self._leadlines_OIII = self._leadlines[self._leadlines['Redshift']<0.82]
+
+    def keys(self):
+        return self._keys
+    
+    def keys_corrected(self):
+        return self._keys_corrected
+    
+    def get_candidate(self, key: str):
+        cand_leadlines = self._leadlines_OIII[self._leadlines_OIII['key'] == key]
+
+        key = cand_leadlines['key']
+        dir = cand_leadlines['dir']
+        loc = '/Volumes/Expansion/exp_thardy/'+dir+'/'+key+'_COMBINED_CUBE_MED_FINAL.fits'
+
+        # with fits.open(loc) as hdul:
+        #     hdr = hdul[0].header
+
+        with Cube(loc) as c:
+            hdr = c.get_wcs_header()
+        
+        w = WCS(hdr)
+
+        coords,wls = w.pixel_to_world(cand_leadlines['X_PEAK_SN'],
+                                cand_leadlines['Y_PEAK_SN'],
+                                cand_leadlines['Z_PEAK_SN'])
+        
+        cand_leadlines['ra'] = coords.ra.deg
+        cand_leadlines['dec'] = coords.dec.deg
+
+        crvals = hdr['CRVAL1'], hdr['CRVAL2']
+
+        return cand_leadlines, cand_leadlines['zcluster'][0], crvals
+        # redshift, table
+
+    def analyse_all(self, raw=False):
+        self.analysed = True
+
+        tables = {}
+        raw_tables = {}
+        spectra = {}
+        for i,key in enumerate(self.keys_corrected()):
+            name = self.keys()[i]
+            print(f'running {name}')
+            tab, z, crvals = self.get_candidate(name)
+
+            indiv_cube = museCube(key,cluster_ra=crvals[0],cluster_dec=crvals[1])
+            indiv_cube.process_multiple_candidates(tab, zcl=z)
+
+            tables[name] = indiv_cube.ex_table
+            raw_tables[name] = indiv_cube.raw_table
+            spectra[name] = indiv_cube.rest_spectra
+
+        self.combined_table = vstack(list(tables.values()))
+        self.combined_table.write('allsources.csv', overwrite=True)
+
+        if raw:
+            self.combined_table_raw = vstack(list(raw_tables.values()))
+            self.combined_table_raw.write('allsources_uncorrected.csv', overwrite=True)
+
+        self.spectra = spectra
+    
+    
+
+
