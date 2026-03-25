@@ -1200,28 +1200,30 @@ class QT_Candidates:
         kyz = []
         for k in self._leadlines:
             kyz.append((k['dir'],k['key']))
-        self._keys.append(list(set(kyz)))
-        self._keys_corrected = ['/Volumes/Expansion/exp_thardy/'+d+'/'+k+'_COMBINED_CUBE_MED_FINAL.fits' for d,k in self.keys()]
-        self._leadlines_OIII = self._leadlines[self._leadlines['Redshift']<0.82]
+        
+        # Get unique (dir, key) tuples and sort them to ensure a consistent order.
+        self._unique_kyz = sorted(list(set(kyz)))
+        
+        # Derive the simple keys from the sorted, unique list.
+        self._keys = [k for (d,k) in self._unique_kyz]
+
+        self._leadlines_OIII = self._leadlines[self._leadlines['Redshift']<0.8]
 
     def keys(self):
         return self._keys
     
-    def keys_corrected(self):
-        return self._keys_corrected
-    
     def get_candidate(self, key: str):
+        global cand_leadlines
         cand_leadlines = self._leadlines_OIII[self._leadlines_OIII['key'] == key]
 
-        key = cand_leadlines['key']
-        dir = cand_leadlines['dir']
+        key = cand_leadlines['key'][0]
+        dir = cand_leadlines['dir'][0]
         loc = '/Volumes/Expansion/exp_thardy/'+dir+'/'+key+'_COMBINED_CUBE_MED_FINAL.fits'
 
         # with fits.open(loc) as hdul:
         #     hdr = hdul[0].header
-
-        with Cube(loc) as c:
-            hdr = c.get_wcs_header()
+        print(loc)
+        hdr = Cube(loc).get_wcs_header()
         
         w = WCS(hdr)
 
@@ -1231,38 +1233,87 @@ class QT_Candidates:
         
         cand_leadlines['ra'] = coords.ra.deg
         cand_leadlines['dec'] = coords.dec.deg
+        cand_leadlines['OIII_est'] = (cand_leadlines['Redshift']+1)*5007
 
         crvals = hdr['CRVAL1'], hdr['CRVAL2']
 
         return cand_leadlines, cand_leadlines['zcluster'][0], crvals
         # redshift, table
 
-    def analyse_all(self, raw=False):
+    def analyse_all(self, raw=False, save_extras=False):
         self.analysed = True
 
-        tables = {}
-        raw_tables = {}
+        # Define output filenames
+        output_filename = 'allsources.csv'
+        raw_output_filename = 'allsources_uncorrected.csv'
+
+        # Ensure a clean start by removing old files before the run begins.
+        if os.path.exists(output_filename):
+            os.remove(output_filename)
+        if raw and os.path.exists(raw_output_filename):
+            os.remove(raw_output_filename)
+
+        # Store spectra and tables in memory to build final attributes
         spectra = {}
-        for i,key in enumerate(self.keys_corrected()):
-            name = self.keys()[i]
+        all_tables = []
+        all_raw_tables = []
+
+        # Iterate over the unified list of unique (dir, key) tuples to avoid mismatches.
+        for (d, k) in self._unique_kyz:
+            name = k # This is the simple key name
+            path = f'/Volumes/Expansion/exp_thardy/{d}/{k}_COMBINED_CUBE_MED_FINAL.fits'
+            
             print(f'running {name}')
-            tab, z, crvals = self.get_candidate(name)
+            try:
+                tab, z, crvals = self.get_candidate(name)
 
-            indiv_cube = museCube(key,cluster_ra=crvals[0],cluster_dec=crvals[1])
-            indiv_cube.process_multiple_candidates(tab, zcl=z)
+                # Use the correct path that corresponds to the candidate's data (tab).
+                indiv_cube = museCube(path, cluster_ra=crvals[0], cluster_dec=crvals[1])
+                indiv_cube.process_multiple_candidates(tab, zcl=z)
 
-            tables[name] = indiv_cube.ex_table
-            raw_tables[name] = indiv_cube.raw_table
-            spectra[name] = indiv_cube.rest_spectra
+                # --- Appending logic for the main table ---
+                ex_table = indiv_cube.ex_table
+                all_tables.append(ex_table)
+                
+                write_header = not os.path.exists(output_filename)
+                s_buf = StringIO()
+                ex_table.write(s_buf, format='csv')
+                s_buf.seek(0)
+                lines = s_buf.readlines()
+                
+                with open(output_filename, 'a') as f:
+                    if write_header:
+                        f.write(lines[0])
+                    f.writelines(lines[1:])
 
-        self.combined_table = vstack(list(tables.values()))
-        self.combined_table.write('allsources.csv', overwrite=True)
+                # --- Appending logic for the raw table (if requested) ---
+                if raw:
+                    raw_table = indiv_cube.raw_table
+                    all_raw_tables.append(raw_table)
+                    
+                    write_header_raw = not os.path.exists(raw_output_filename)
+                    s_buf_raw = StringIO()
+                    raw_table.write(s_buf_raw, format='csv')
+                    s_buf_raw.seek(0)
+                    lines_raw = s_buf_raw.readlines()
+                    
+                    with open(raw_output_filename, 'a') as f_raw:
+                        if write_header_raw:
+                            f_raw.write(lines_raw[0])
+                        f_raw.writelines(lines_raw[1:])
+                
+                if save_extras:
+                    spectra[name] = indiv_cube.rest_spectra
+            except:
+                print('Failed, Skipping')
 
-        if raw:
-            self.combined_table_raw = vstack(list(raw_tables.values()))
-            self.combined_table_raw.write('allsources_uncorrected.csv', overwrite=True)
+        # Create the combined table attributes from the in-memory lists
+        if save_extras:
+            self.combined_table = vstack(all_tables)
+            if raw:
+                self.combined_table_raw = vstack(all_raw_tables)
 
-        self.spectra = spectra
+            self.spectra = spectra    
     
     
 
