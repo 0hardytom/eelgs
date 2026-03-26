@@ -15,6 +15,7 @@ from astropy.io import ascii, fits
 from astropy import units as u
 from astropy.table import Table, vstack, hstack
 from astropy.modeling import models, fitting
+from io import StringIO
 
 
 # from calculate_jiang19_metallicity import calculate_metallicity_jiang19 as cjm19
@@ -1313,8 +1314,9 @@ class QT_Candidates:
                 
                 if save_extras:
                     spectra[name] = indiv_cube.rest_spectra
-            except:
-                print('Failed, Skipping')
+            # except:
+            #     print('Failed, Skipping')
+            except Exception as e: print('Failed, Skipping, error message: ',e)
 
         # Create the combined table attributes from the in-memory lists
         if save_extras:
