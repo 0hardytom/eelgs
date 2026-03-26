@@ -1209,6 +1209,15 @@ class QT_Candidates:
 
         self._leadlines_OIII = self._leadlines[self._leadlines['Redshift']<0.8]
 
+        #We are not sure whether the LyA population contains OIII - we will add them now and remove any later that don't have the OIII-1 line
+        #Obviously these could be Hbeta but our sample's lead lines are all OIII
+        
+        LyA_poss = self._leadlines[self._leadlines['Short'] == 'Lya'].copy()
+        z = LyA_poss['Redshift'].copy()
+        LyA_poss['Redshift'] = (1+z)*(1215.67/5007) - 1 
+
+        self._leadlines_OIII = vstack([LyA_poss, self._leadlines_OIII])
+
     def keys(self):
         return self._keys
     
