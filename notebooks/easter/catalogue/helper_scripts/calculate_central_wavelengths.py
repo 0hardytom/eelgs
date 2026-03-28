@@ -10,6 +10,12 @@ def calculate_pivot_wavelength(l, t):
     # For newer numpy versions, np.trapezoid would be preferred.
     return np.sqrt(np.trapz(t * l, l) / np.trapz(t / l, l))
 
+def calculate_effective_bandwidth(l, t):
+    """
+    Calculate the effective bandwidth (or FWHM) of the filter.
+    """
+    return np.trapz(t, l) / np.max(t)
+
 def main():
     """
     Main function to extract filter information, calculate pivot wavelengths,
@@ -19,7 +25,7 @@ def main():
     try:
         with fits.open('filter_list.fits') as hdul, open(output_filename, 'w', newline='') as csvfile:
             csv_writer = csv.writer(csvfile)
-            csv_writer.writerow(['Filter', 'Pivot_Wavelength_A'])
+            csv_writer.writerow(['Filter', 'Pivot_Wavelength_A', 'Filter_FWHM_A'])
 
             print(f"Processing filters and writing to {output_filename}...")
 
@@ -33,8 +39,9 @@ def main():
                         t = data['throughput']
                         
                         pivot_wave = calculate_pivot_wavelength(l, t)
+                        bandwidth = calculate_effective_bandwidth(l, t)
                         
-                        csv_writer.writerow([filter_name, f"{pivot_wave:.2f}"])
+                        csv_writer.writerow([filter_name, f"{pivot_wave:.2f}", f"{bandwidth:.2f}"])
                         
                     except KeyError as e:
                         print(f"Could not find columns 'lambda' and 'throughput' in {filter_name}: {e}")

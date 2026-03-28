@@ -1,9 +1,10 @@
 from astropy.coordinates import SkyCoord
 from astropy.io import ascii
 import astropy.units as u
-from astropy.table import Table
+from astropy.table import Table, Row
 from mpdaf.obj import Cube
 import numpy as np
+import astropy.constants as c
 
 #### FIRST WE NEED TO CREATE A DICTIONARY TO KEY THE CUBE
 leadlines = Table(ascii.read('leadlines.csv'))
@@ -15,16 +16,24 @@ exlocs = []
 
 for k in keys:
     rows = leadlines.loc[k]
-    top = rows[0]
+    if isinstance(rows, Table):
+        top = rows[0]
+    else:
+        top = rows
     fullnames.append(top['cluster'])
     exlocs.append(top['dir'])
 
 refcat = Table([keys,fullnames,exlocs], names=('key','fullname','dir'))
 refcat.add_index('key')
 
+refcat.write('refcat.csv', overwrite=True)
+
 #### THEN WE DO I/O
 
-cat = Table(ascii.read('temp_bin../allsourcesNOSTACK.csv'))
+cat = Table(ascii.read('catalogues/allsourcesNOSTACK.csv'))
+filter_info = ascii.read('filter_wavelengths.csv')
+filter_wavelengths = {row['Filter']: (row['Pivot_Wavelength_A'], row['Filter_FWHM_A']) for row in filter_info}
+
 
 height = len(cat['ra'])
 bands = ["WFC3_F502N", "WFC3_F606W", "WFC3_F625W", "WFC3_F656N","WFC3_F775W"]
@@ -41,30 +50,39 @@ tab.add_index('object_id')
 #### THEN WE DO EXTRACTION ####
 
 for k in keys:
+    print('processing cluster '+k)
     #write over new data after each cube load to prevent catastrophic failure
     tab.write('MUSE_photometry.csv', overwrite=True)
     try:
         #now extract sources
         sources_in_cluster = cat[cat['name']==k]
         info = refcat.loc[k]
-        loc = '/Volumes/Expansion/exp_thardy/'+info['dir']+'/'+info['fullname']+'_COMBINED_CUBE_MED_FINAL.fits''
+        loc = '/Volumes/Expansion/exp_thardy/'+info['dir']+'/'+info['key']+'_COMBINED_CUBE_MED_FINAL.fits'
         cluster_cube = Cube(loc)
 
         for ii, id in enumerate(sources_in_cluster['object_id']):
+            print(f'extracting object {ii} of {len(sources_in_cluster['object_id'])}')
             tab_current = tab.loc[id]
             eelg_location = SkyCoord(ra=tab_current['ra']*u.deg, dec=tab_current['dec']*u.deg)
-            cutout = cluster_cube.subcube_circle_aperture((eelg_location.dec,eelg_location.ra), 2*u.arcsec)
+            cutout = cluster_cube.subcube_circle_aperture((eelg_location.dec.deg,eelg_location.ra.deg), 2)
 
             for b in bands:
 
-                band_cutout = cutout.get_band_image(c)
-                flux = np.nansum(band_cutout.data)*(1e-20)*(u.erg)/(u.s*u.cm**2) # we have lost the AA dependency as this is now an image
-                ##### WE NEED TO NOW CONVERT TO JANSKY.... ###
-
-                ### finally ipdate the tab_current ##
-
-
-
+                band_cutout = cutout.get_band_image(b)
+                flux = np.nansum(band_cutout.data)*(1e-20)*(u.erg/(u.s*u.cm**2)) # we have lost the AA dependency as this is now an image
+                
+                # CONVERT TO MICROJANSKY
+                pivot_wave, fwhm = filter_wavelengths[b]
+                pivot_wave *= u.AA
+                fwhm *= u.AA
+                
+                f_lambda = flux / fwhm
+                f_nu = f_lambda * pivot_wave**2 / c.c
+                ujy = f_nu.to(u.uJy)
+                
+                # Update the table
+                tab.loc[id][b] = ujy.value
+        print('cluster complete!')
 
     except Exception as e:
         print('Failed; error - ', e)
