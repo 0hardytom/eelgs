@@ -67,8 +67,16 @@ class museCube:
             os.mkdir(f'spec/{self.title}')    
         return True
 
+    # def _get_title(self):
+    #     pattern = r'cubes/([^_]+)_'
+    #     match = re.search(pattern, self.path)
+    #     if match:
+    #         return match.group(1)
+    #     else:
+    #         return 'BLANK'
+
     def _get_title(self):
-        pattern = r'cubes/([^_]+)_'
+        pattern = r'cubes(?:_new)?/([^_]+)_'
         match = re.search(pattern, self.path)
         if match:
             return match.group(1)

@@ -37,13 +37,14 @@ filter_wavelengths = {row['Filter']: (row['Pivot_Wavelength_A'], row['Filter_FWH
 
 height = len(cat['ra'])
 bands = ["WFC3_F502N", "WFC3_F606W", "WFC3_F625W", "WFC3_F656N","WFC3_F775W"]
-columns = ['object_id','ra','dec']+bands
+columns = ['object_id','ra','dec','key']+bands
 grid = np.zeros([height, len(columns)], dtype=np.float64)
 
 tab = Table(grid, names=columns)
 tab['ra'] = cat['ra']
 tab['dec'] = cat['dec']
 tab['object_id'] = cat['object_id']
+tab['key'] = cat['name']
 tab.add_index('object_id')
 
 
@@ -55,9 +56,11 @@ for k in keys:
     tab.write('MUSE_photometry.csv', overwrite=True)
     try:
         #now extract sources
+        print('Finding sources in cluster')
         sources_in_cluster = cat[cat['name']==k]
         info = refcat.loc[k]
         loc = '/Volumes/Expansion/exp_thardy/'+info['dir']+'/'+info['key']+'_COMBINED_CUBE_MED_FINAL.fits'
+        print('loading: ', loc)
         cluster_cube = Cube(loc)
 
         for ii, id in enumerate(sources_in_cluster['object_id']):
