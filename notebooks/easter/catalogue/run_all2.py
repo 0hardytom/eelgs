@@ -15,6 +15,7 @@ from astropy.io import ascii
 from astropy import units as u
 from astropy.table import Table, vstack, hstack
 from astropy.modeling import models, fitting
+import subprocess
 
 import os
 from io import StringIO
@@ -64,4 +65,8 @@ print('master table written')
 cig_prep()
 
 print('cigale prep complete')
+
+subprocess.run(['./run_cigale_remote.sh'], shell=True, check=True)
+
+print('cigale run complete')
 

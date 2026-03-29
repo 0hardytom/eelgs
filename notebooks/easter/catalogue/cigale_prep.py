@@ -75,7 +75,7 @@ filter_key_to_band = {
     "flux_Spitzer_I2_4.5":  "spitzer.irac.I2",
 }
 
-def main()
+def main():
     redshift = {'z':'redshift', 'object_id':'id'}
 
     master_key = filter_key_to_band | lambda_to_spectral_key | redshift
