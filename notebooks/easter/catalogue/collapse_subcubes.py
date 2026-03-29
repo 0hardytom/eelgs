@@ -31,7 +31,7 @@ def main():
 
     #### THEN WE DO I/O
 
-    cat = Table(ascii.read('catalogues/allsourcesNOSTACK.csv'))
+    cat = Table(ascii.read('catalogues_raw/allsourcesNOSTACK.csv'))
     filter_info = ascii.read('filter_wavelengths.csv')
     filter_wavelengths = {row['Filter']: (row['Pivot_Wavelength_A'], row['Filter_FWHM_A']) for row in filter_info}
 

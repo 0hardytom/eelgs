@@ -45,15 +45,16 @@ from collapse_subcubes import main as collapse_subcubes
 
 ###### RUN SCRIPT #######
 
-cand = QT_Candidates()
-cand.analyse_all()
+# cand = QT_Candidates()
+# cand.analyse_all()
 
-print('all sources analysed')
+# print('all sources analysed')
 
-tab = ascii.read('allsources.csv')
-nostack = tab[tab['object_id']!='STACK']
-nostack.write('catalogues_raw/allsourcesNOSTACK.csv', overwrite=True)
-print('no-stack catalogue written')
+# tab = ascii.read('allsources.csv')
+# nostack = tab[tab['object_id']!='STACK']
+# nostack.write('catalogues_raw/allsourcesNOSTACK.csv', overwrite=True)
+# print('no-stack catalogue written')
+
 collapse_subcubes()
 
 print('subcubes collapsed')
