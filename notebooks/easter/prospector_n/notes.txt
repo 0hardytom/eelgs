@@ -1,0 +1,24 @@
+Hello everyone! I'm Tom - I'm Tom - I'm visiting today because I've accepted an offer to the IoA and I'm super interested in joining the group - Hiranya's very kindly given me some time to present, and I've challenged myself today to condense my Master's project into three minutes to give you an idea on what I currently work on. 
+
+My thesis is called 'Extreme Emission Line Galaxies in the Fields of Massive Clusters with VLT-MUSE' - that's a bit of a handful, so I'll break that down into its important chunks.
+
+Firstly - extreme emission line galaxies - I'm hoping that given most of us are galaxy astrophysicicsts or cosmologists everyone will have encountered an emission line galaxy - in these galaxies there is one of two things happening; either we have bursty star formation or an active galactic nucleus exciting nebulae in a dwarf galaxy, and it creates narrow emission lines - you'll recognise these as [OIII], the balmer series and the Lyman series. 
+
+Extreme Emission Line Galaxies are those containing either extremely low mass AGN or very young stellar populations and present themselves with extremely little stellar continuum, which gives us characteristic spectra that look like the following:
+
+Notwithstanding the fact that they form part of a very useful catalogue of easily redshift-verifiable objects for cosmology, there are principally three reasons we should care about these galaxies:
+1) They are a chance to look at the most extreme points of a starburst - this makes them rare
+2) They are chances to examine the most energetic low mass AGN: you can't X-ray select them because of their low mass
+3) The nearby EELGs closely resemble the population of galaxies we have at high redshift, and the most extreme ones also leak Lyman radiation into the IGM.
+
+Okay - this clears up the EELG bit of the title - very quickly: why are we looking at clusters?
+
+It's actually because of data convenience - my PI has a huge number of VLT/MUSE poor weather observations of the most X-ray luminous clusters; what he found when contributing to this paper on cluster dark matter distributions is that most of these clusters have at least one EELG in the core of their fields, which is a very large surface density for such shallow observations. There are a couple of pros and cons with this strategy:
+
++) We have lots of observations - I am going to show you the results of about 50 of our 200 cluster core observations
++) Integral field spectroscopy gives us some large scale resolution in both position and wavelength
++) These combine to give us a chance to look at the environment of EELGs, which is otherwise a difficult task
+
+-) Because they are poor weather observations we lose 
+
+

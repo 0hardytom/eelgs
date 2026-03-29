@@ -37,7 +37,7 @@ data/results/*
 !data/processed/.gitkeep
 !data/results/.gitkeep
 *.cat
-
+*.mmap
 # Jupyter Notebook
 .ipynb_checkpoints
 

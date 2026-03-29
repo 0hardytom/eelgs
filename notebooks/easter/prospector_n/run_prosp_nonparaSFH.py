@@ -156,9 +156,7 @@ def build_model(row,**kwargs):
     model_params[n.index('z_fraction')]['init'] = zinit
     model_params[n.index('z_fraction')]['prior'] = zprior
 
-
     #### now deal with emission lines ####
-
 
     model = sedmodel.SedModel(model_params)
     
