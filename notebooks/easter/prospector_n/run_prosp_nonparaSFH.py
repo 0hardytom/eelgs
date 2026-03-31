@@ -78,8 +78,8 @@ def build_model(row,**kwargs):
     model_params.append({'name': 'add_agb_dust_model', 'N': 1,'isfree': False,'init': 0})
     
     #M-Z
-    model_params.append({'name': 'logmass', 'N': 1,'isfree': True,'init': 8,'prior': priors.Uniform(mini=7., maxi=10.)})
-    model_params.append({'name': 'logzsol', 'N': 1,'isfree': True,'init': -0.5,'prior': priors.Uniform(mini=-1.5, maxi=0.2)})
+    model_params.append({'name': 'logmass', 'N': 1,'isfree': True,'init': 8,'prior': priors.Uniform(mini=7., maxi=12.)})
+    model_params.append({'name': 'logzsol', 'N': 1,'isfree': True,'init': -0.5,'prior': priors.Uniform(mini=-2.5, maxi=-.8)})
     
 
     #SFH 
@@ -96,7 +96,7 @@ def build_model(row,**kwargs):
     #agebins are the limits for each piece-wise bin of star formation. these are set below
     model_params.append({'name': "agebins", 'N': 1, 'isfree': False,'init': []})
     #proxy parameter for SFR in each age bin
-    model_params.append({'name': "z_fraction", "N": 2, 'isfree': True, 'init': [0, 0],'prior': priors.Beta(alpha=1.0, beta=1.0, mini=0.0, maxi=1.0)})                                                                                                                                                                                                                           
+    model_params.append({'name': "z_fraction", "N": 2, 'isfree': True, 'init': [0, 0],'prior': priors.Beta(alpha=1.0, beta=1.0, mini=0.0, maxi=5.0)})                                                                                                                                                                                                                           
 
     #NEBULAR STUFF
     ###### Nebular Emission ###########
@@ -121,14 +121,14 @@ def build_model(row,**kwargs):
                             'prior_args': None})
 
     model_params.append({'name': 'gas_logz', 'N': 1,
-                            'isfree': False,
+                            'isfree': True,
                             'init': 0.0,
                             'depends_on': tie_gas_logz,
                             'units': r'log Z/Z_\odot',
                             'prior': priors.TopHat(mini=-2.0, maxi=0.5)})
 
     model_params.append({'name': 'gas_logu', 'N': 1,
-                            'isfree': False,
+                            'isfree': True,
                             'init': -2.0,
                             'units': '',
                             'prior': priors.TopHat(mini=-4.0, maxi=-1.0)})
