@@ -70,16 +70,16 @@ def build_model(row,**kwargs):
     model_params.append({'name': "lumdist", "N": 1, "isfree": False,"init": lumdist,"units": "Mpc"})
     model_params.append({'name': 'imf_type', 'N': 1,'isfree': False,'init': 2})
     model_params.append({'name': 'dust_type', 'N': 1,'isfree': False,'init': 2,'prior': None})
-    model_params.append({'name': 'dust2', 'N': 1,'isfree': True, 'init': 0.1,'prior': priors.ClippedNormal(mini=0.0, maxi=2.0, mean=0.0, sigma=0.3)})
+    model_params.append({'name': 'dust2', 'N': 1,'isfree': True, 'init': 0.1,'prior': priors.ClippedNormal(mini=-0.3, maxi=0.3, mean=0.0, sigma=0.3)})
     model_params.append({'name': 'add_dust_emission', 'N': 1,'isfree': False,'init': 1,'prior': None})
-    model_params.append({'name': 'duste_gamma', 'N': 1,'isfree': True,'init': 0.01,'prior': priors.TopHat(mini=0.0, maxi=1.0)})
-    model_params.append({'name': 'duste_umin', 'N': 1,'isfree': True,'init': 1.0,'prior': priors.TopHat(mini=0.1, maxi=20.0)})
-    model_params.append({'name': 'duste_qpah', 'N': 1,'isfree': True,'init': 3.0,'prior': priors.TopHat(mini=0.0, maxi=6.0)})                                                          
+    model_params.append({'name': 'duste_gamma', 'N': 1,'isfree': True,'init': 0.01,'prior': priors.TopHat(mini=0, maxi=1.0)})
+    model_params.append({'name': 'duste_umin', 'N': 1,'isfree': True,'init': 1.0,'prior': priors.TopHat(mini=-10, maxi=20.0)})
+    model_params.append({'name': 'duste_qpah', 'N': 1,'isfree': True,'init': 3.0,'prior': priors.TopHat(mini=0, maxi=2)})                                                          
     model_params.append({'name': 'add_agb_dust_model', 'N': 1,'isfree': False,'init': 0})
     
     #M-Z
-    model_params.append({'name': 'logmass', 'N': 1,'isfree': True,'init': 8,'prior': priors.Uniform(mini=7., maxi=12.)})
-    model_params.append({'name': 'logzsol', 'N': 1,'isfree': True,'init': -0.5,'prior': priors.Uniform(mini=-2.5, maxi=-.8)})
+    model_params.append({'name': 'logmass', 'N': 1,'isfree': True,'init': 10,'prior': priors.Uniform(mini=9, maxi=11)})
+    model_params.append({'name': 'logzsol', 'N': 1,'isfree': True,'init': -0.5,'prior': priors.Uniform(mini=-2.2, maxi=-1.2)})
     
 
     #SFH 
@@ -125,13 +125,13 @@ def build_model(row,**kwargs):
                             'init': 0.0,
                             'depends_on': tie_gas_logz,
                             'units': r'log Z/Z_\odot',
-                            'prior': priors.TopHat(mini=-2.0, maxi=0.5)})
+                            'prior': priors.TopHat(mini=-3.0, maxi=1)})
 
     model_params.append({'name': 'gas_logu', 'N': 1,
                             'isfree': True,
                             'init': -2.0,
                             'units': '',
-                            'prior': priors.TopHat(mini=-4.0, maxi=-1.0)})
+                            'prior': priors.TopHat(mini=-5.0, maxi=-.5)})
 
 
     #here we set the number and location of the timebins, and edit the other SFH parameters to match in size
@@ -255,7 +255,7 @@ if __name__ == '__main__':
         obs, model, sps = build_all(ROW,**run_params)
         run_params["sps_libraries"] = sps.ssp.libraries
         run_params["param_file"] = __file__
-        hfile = f"test{II}_fit.h5"
+        hfile = f"test{II}02_fit.h5"
         print('Running fits')
         output = fit_model(obs, model, sps, [None,None],**run_params)
         print('Done. Writing now')
