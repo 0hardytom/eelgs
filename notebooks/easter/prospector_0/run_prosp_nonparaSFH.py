@@ -139,7 +139,7 @@ def build_model(row,**kwargs):
     tuniv = 14. #Gyr, age at z=0                                                                                                                                                                                                         
     nbins=10
     tbinmax = (tuniv * 0.8) * 1e9 #earliest time bin goes from age = 0 to age = 2.8 Gyr
-    lim1, lim2 = 7.47, 8.0 #most recent time bins at 30 Myr and 100 Myr ago                                                                                                                                                                                                 
+    lim1, lim2 = 7.0, 8.0 #most recent time bins at 10 Myr and 100 Myr ago                                                                                                                                                                                                 
     agelims = [0,lim1] + np.linspace(lim2,np.log10(tbinmax),nbins-2).tolist() + [np.log10(tuniv*1e9)]
     agebins = np.array([agelims[:-1], agelims[1:]])
 
