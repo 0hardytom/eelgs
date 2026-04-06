@@ -275,7 +275,7 @@ model_params.append({'name': 'nebemlineinspec', 'N': 1,
 model_params.append({'name': 'gas_logz', 'N': 1,
                         'isfree': True,
                         'init': 0.0,
-                        'depends_on': tie_gas_logz,
+                        # 'depends_on': tie_gas_logz,
                         'units': r'log Z/Z_\odot',
                         'prior': priors.TopHat(mini=-2.0, maxi=0.5)})
 
@@ -312,7 +312,7 @@ for param in model_params:
         tparams.append(param)
 model_params = tparams
 
-def load_model(row, agelims =[7.0, 8.0, 8.5, 9.0, 0], **kwargs):
+def load_model(row, agelims =[4.0,5.0,6.0,7.0, 8.0, 8.5, 9.0, 0], **kwargs):
 
     from prospect.models import priors, sedmodel
     from astropy.cosmology import Planck18 as cosmo
@@ -444,13 +444,20 @@ run_params = {'verbose':True,
 
 if __name__ == '__main__':
 
-    PD_DIR ='test_for_sed.csv'
+    PD_DIR ='sedrun.csv'
     TAB = Table(ascii.read(PD_DIR))
     for II,ROW in enumerate(TAB):
+        name = ROW['object_id']
+        save_string = f'out/{name}'
+        if os.path.isdir(save_string):
+            os.mkdir(save_string)
+        nresults = len(glob(save_string+'/*'))
+
         obs, model, sps = build_all(ROW,**run_params)
         run_params["sps_libraries"] = sps.ssp.libraries
         run_params["param_file"] = __file__
-        hfile = f"test{II}02_fit.h5"
+
+        hfile = save_string+f'/results_{nresults}.h5'
         print('Running fits')
         output = fit_model(obs, model, sps, [None,None],**run_params)
         print('Done. Writing now')
