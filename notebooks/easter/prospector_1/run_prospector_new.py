@@ -119,7 +119,7 @@ model_params.append({'name': 'logzsol', 'N': 1,
                         'init_disp': 0.25,
                         'disp_floor': 0.2,
                         'units': r'$\log (Z/Z_\odot)$',
-                        'prior': priors.TopHat(mini=-1.98, maxi=0.19)})
+                        'prior': priors.TopHat(mini=-2.2, maxi=-1.2)})
                         
 ###### SFH   ########
 model_params.append({'name': 'sfh', 'N':1,
@@ -241,7 +241,7 @@ model_params.append({'name': 'duste_umin', 'N': 1,
                         'init_disp': 10.0,
                         'disp_floor': 5.0,
                         'units': None,
-                        'prior': priors.TopHat(mini=0.1, maxi=25.0)})
+                        'prior': priors.TopHat(mini=-10, maxi=25.0)})
 
 model_params.append({'name': 'duste_qpah', 'N': 1,
                         'isfree': True,
@@ -273,14 +273,14 @@ model_params.append({'name': 'nebemlineinspec', 'N': 1,
                         'prior_args': None})
 
 model_params.append({'name': 'gas_logz', 'N': 1,
-                        'isfree': False,
+                        'isfree': True,
                         'init': 0.0,
                         'depends_on': tie_gas_logz,
                         'units': r'log Z/Z_\odot',
                         'prior': priors.TopHat(mini=-2.0, maxi=0.5)})
 
 model_params.append({'name': 'gas_logu', 'N': 1,
-                        'isfree': False,
+                        'isfree': True,
                         'init': -2.0,
                         'units': '',
                         'prior': priors.TopHat(mini=-4.0, maxi=-1.0)})
@@ -291,7 +291,7 @@ model_params.append({'name': 'phot_jitter', 'N': 1,
                         'init': 0.0,
                         'init_disp': 0.5,
                         'units': 'fractional maggies (mags/1.086)',
-                        'prior': priors.TopHat(mini=0.0, maxi=0.5)})
+                        'prior': priors.TopHat(mini=-5.0, maxi=0.5)})
 
 ####### Units ##########
 model_params.append({'name': 'peraa', 'N': 1,
@@ -413,7 +413,7 @@ def build_obs(row, **kwargs):
     obs['phot_mask'] = np.isfinite(flux_mag)
     obs['wavelength'] = wavelength.value
     obs['spectrum'] = flux_maggie.value
-    obs['unc'] = flux_maggie.value/10
+    obs['unc'] = flux_maggie.value/15
 
     return obs
 
