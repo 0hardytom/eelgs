@@ -4,9 +4,10 @@ from prospect.fitting import fit_model
 import sys, os
 from astropy.io import ascii
 from astropy.table import Table
-import helper
 from glob import glob
 from astropy.constants import c as speedoflight
+from prospect.models import priors, sedmodel
+
 
 #------------------------
 # Convienence Functions
@@ -23,7 +24,7 @@ def to_dust1(dust1_fraction=None, dust1=None, dust2=None, **extras):
 
 def transform_zfraction_to_sfrfraction(sfr_fraction=None, z_fraction=None, **extras):
     sfr_fraction[0] = 1-z_fraction[0]
-    for i in xrange(1,sfr_fraction.shape[0]): sfr_fraction[i] =  np.prod(z_fraction[:i])*(1-z_fraction[i])
+    for i in range(1,sfr_fraction.shape[0]): sfr_fraction[i] =  np.prod(z_fraction[:i])*(1-z_fraction[i])
     return sfr_fraction
 
 def tie_gas_logz(logzsol=None, **extras):
@@ -312,9 +313,8 @@ for param in model_params:
         tparams.append(param)
 model_params = tparams
 
-def load_model(row, agelims =[4.0,5.0,6.0,7.0, 8.0, 8.5, 9.0, 0], **kwargs):
+def build_model(row, agelims =[4.0,5.0,6.0,7.0, 8.0, 8.5, 9.0, 0], **kwargs):
 
-    from prospect.models import priors, sedmodel
     from astropy.cosmology import Planck18 as cosmo
     print('building model')
 
@@ -340,7 +340,7 @@ def load_model(row, agelims =[4.0,5.0,6.0,7.0, 8.0, 8.5, 9.0, 0], **kwargs):
     #### FRACTIONAL MASS INITIALIZATION
     # N-1 bins, last is set by x = 1 - np.sum(sfr_fraction)
     model_params[n.index('z_fraction')]['N'] = ncomp-1
-    tilde_alpha = np.array([ncomp-i for i in xrange(1,ncomp)])
+    tilde_alpha = np.array([ncomp-i for i in range(1,ncomp)])
     model_params[n.index('z_fraction')]['prior'] = priors.Beta(alpha=tilde_alpha, beta=np.ones_like(tilde_alpha),mini=0.0,maxi=1.0)
     model_params[n.index('z_fraction')]['init'] = np.array([(i-1)/float(i) for i in range(ncomp,1,-1)])
     model_params[n.index('z_fraction')]['init_disp'] = 0.02
@@ -371,6 +371,8 @@ def build_obs(row, **kwargs):
     from astropy.coordinates import SkyCoord
     from mpdaf.obj import Cube
 
+    maggie = u.def_unit('maggie', u.Jy/3631)
+
     spitzer = ['spitzer_irac_ch'+n for n in ['1','2']]
     filternames = spitzer
 
@@ -386,21 +388,41 @@ def build_obs(row, **kwargs):
     ## now do spectrum ##
     print('doing spectral stuff!')
     name  = row['name']
-    allfiles = glob('/Volumes/Expansion/exp_thardy/cubes/*.fits')+glob('/Volumes/Expansion/exp_thardy/cubes_new/*.fits')
-    filedir = 'BLANK'
-    for a in allfiles:
-        if name in a:
-            filedir = a
-        
-    coord = SkyCoord(ra=row['ra'], dec=row['dec'], unit=u.deg)
-    cube = Cube(filedir)
-    spectrum = cube.aperture((coord.dec.deg,coord.ra.deg),2)
-    spectrum = spectrum.resample(2.5)
-    conv_factor = (1.0 / speedoflight).to(u.Jy * u.s * u.cm**2 / (u.erg *u.AA))
-    flux_lambda = spectrum.data.data*u.erg/(u.AA*u.s*u.cm**2)*1e-20
-    wavelength = spectrum.wave.coord()*u.AA
-    flux_jansky = conv_factor * flux_lambda * wavelength**2
-    flux_maggie = flux_jansky/3631
+    object_id = row['object_id']
+    
+    # check if spec folder exists, if not create it
+    if not os.path.isdir('spec/'):
+        os.mkdir('spec/')
+    
+    spec_file = f'spec/{object_id}spec.fits'
+
+    if os.path.exists(spec_file):
+        print('loading spectrum from file')
+        spec_table = Table.read(spec_file)
+        wavelength = spec_table['wavelength'].data * u.AA
+        flux_maggie = spec_table['flux_maggie'].data * maggie
+    else:
+        print('creating spectrum')
+        allfiles = glob('/Volumes/Expansion/exp_thardy/cubes/*.fits')+glob('/Volumes/Expansion/exp_thardy/cubes_new/*.fits')
+        filedir = 'BLANK'
+        for a in allfiles:
+            if name in a:
+                filedir = a
+            
+        coord = SkyCoord(ra=row['ra'], dec=row['dec'], unit=u.deg)
+        cube = Cube(filedir)
+        spectrum = cube.aperture((coord.dec.deg,coord.ra.deg),2)
+        spectrum = spectrum.resample(2.5)
+        conv_factor = (1.0 / speedoflight).to(u.Jy * u.s * u.cm**2 / (u.erg *u.AA))
+        flux_lambda = spectrum.data.data*u.erg/(u.AA*u.s*u.cm**2)*1e-20
+        wavelength = spectrum.wave.coord()*u.AA
+        flux_jansky = conv_factor * flux_lambda * wavelength**2
+        flux_maggie = flux_jansky/3631
+
+        # save for later
+        spec_table = Table([wavelength.value, flux_maggie.value], names=('wavelength', 'flux_maggie'))
+        spec_table.write(spec_file, overwrite=True)
+
     print('spectrum created....')
     
     obs = {}
