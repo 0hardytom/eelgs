@@ -383,7 +383,7 @@ def build_obs(row, **kwargs):
     filters_to_get = ['flux_Spitzer_I1_3.6','flux_Spitzer_I2_4.5']
     flux = np.array([row[header] for header in filters_to_get])*u.uJy
     flux_mag = flux*1e-6/3631
-    unc_mag = flux_mag/10 # assuming a SNR here until we calculate errors.
+    unc_mag = np.abs(flux_mag/10) # assuming a SNR here until we calculate errors.
 
     ## now do spectrum ##
     print('doing spectral stuff!')
@@ -394,7 +394,7 @@ def build_obs(row, **kwargs):
     if not os.path.isdir('spec/'):
         os.mkdir('spec/')
     
-    spec_file = f'spec/{object_id}spec.fits'
+    spec_file = f'spec/{object_id}.spec.fits'
 
     if os.path.exists(spec_file):
         print('loading spectrum from file')
@@ -435,7 +435,12 @@ def build_obs(row, **kwargs):
     obs['phot_mask'] = np.isfinite(flux_mag)
     obs['wavelength'] = wavelength.value
     obs['spectrum'] = flux_maggie.value
-    obs['unc'] = flux_maggie.value/15
+
+    snr = 5
+    spec_floor = 0.01 * np.nanmedian(flux_maggie.value)
+    obs['unc'] = np.sqrt((flux_maggie.value / snr)**2 +spec_floor**2)
+
+    obs['mask'] = np.isfinite(flux_maggie.value)&(flux_maggie.value>0)
 
     return obs
 
