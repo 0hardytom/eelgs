@@ -490,7 +490,7 @@ if __name__ == '__main__':
         run_params["sps_libraries"] = sps.ssp.libraries
         run_params["param_file"] = __file__
 
-        hfile = save_string+f'/results_{nresults}.h5'
+        hfile = save_string+f'results_{nresults}.h5'
         print('Running fits')
         output = fit_model(obs, model, sps, [None,None],**run_params)
         print('Done. Writing now')
