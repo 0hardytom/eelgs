@@ -86,7 +86,7 @@ def build_model(row,**kwargs):
     #'custom' SFH). Of note is that the "mass" parameter no long refers to the total stellar mass. Instead,
     #this is related to the stellar mass formed in each piece-wise time bin. However, the model doesn't actually
     #sample the mass posteriors. Instead, it uses a proxy variable "z_fraction" that is related to the choice of
-    #prior (Dirichlet distribution). If you want to learn more, I'd highly recommend reading Joel Leja's 2019
+    #prior (Dirichlet distribution). If you want to learn more, I'd highly recommend reading Joel Lejaf 2019
     #paper introducing the Prospector non parametric SFH models
     model_params.append({'name': "sfh", "N": 1, "isfree": False, "init": 3})
     #Now, mass refers to the stellar mass formed *in each time bin* while the logmass parameter above 

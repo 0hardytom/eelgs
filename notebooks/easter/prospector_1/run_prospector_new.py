@@ -125,7 +125,7 @@ model_params.append({'name': 'logzsol', 'N': 1,
 ###### SFH   ########
 model_params.append({'name': 'sfh', 'N':1,
                         'isfree': False,
-                        'init': 0,
+                        'init': 3,
                         'units': None})
 
 model_params.append({'name': 'logmass', 'N': 1,
@@ -276,7 +276,7 @@ model_params.append({'name': 'nebemlineinspec', 'N': 1,
 model_params.append({'name': 'gas_logz', 'N': 1,
                         'isfree': True,
                         'init': 0.0,
-                        # 'depends_on': tie_gas_logz,
+                        'depends_on': tie_gas_logz,
                         'units': r'log Z/Z_\odot',
                         'prior': priors.TopHat(mini=-2.0, maxi=0.5)})
 
@@ -313,7 +313,7 @@ for param in model_params:
         tparams.append(param)
 model_params = tparams
 
-def build_model(row, agelims =[4.0,5.0,6.0,7.0, 8.0, 8.5, 9.0, 0], **kwargs):
+def build_model(row, agelims =[6.0,7.0,7.5, 8.0, 8.5, 9.0, 0], **kwargs):
 
     from astropy.cosmology import Planck18 as cosmo
     print('building model')
@@ -429,18 +429,24 @@ def build_obs(row, **kwargs):
     #put some useful things in our dictionary. Prospector exepcts to see, at the least, the filters, photmetry
     #and errors, and if available, the spectrum information. I also include the full powderday SED for easy 
     #access later
+    # obs['filters'] = filters
+    # obs['maggies'] = flux_mag.value
+    # obs['maggies_unc'] = unc_mag.value
+    # obs['phot_mask'] = np.isfinite(flux_mag)
+    # obs['wavelength'] = wavelength.value
+    # obs['spectrum'] = flux_maggie.value
+    # snr = 5
+    # spec_floor = 0.01 * np.nanmedian(flux_maggie.value)
+    # obs['unc'] = np.sqrt((flux_maggie.value / snr)**2 +spec_floor**2)
+    # obs['mask'] = np.isfinite(flux_maggie.value)&(flux_maggie.value>0)
+
     obs['filters'] = filters
     obs['maggies'] = flux_mag.value
     obs['maggies_unc'] = unc_mag.value
     obs['phot_mask'] = np.isfinite(flux_mag)
     obs['wavelength'] = wavelength.value
     obs['spectrum'] = flux_maggie.value
-
-    snr = 5
-    spec_floor = 0.01 * np.nanmedian(flux_maggie.value)
-    obs['unc'] = np.sqrt((flux_maggie.value / snr)**2 +spec_floor**2)
-
-    obs['mask'] = np.isfinite(flux_maggie.value)&(flux_maggie.value>0)
+    obs['unc'] = flux_maggie.value/10
 
     return obs
 
