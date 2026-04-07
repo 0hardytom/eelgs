@@ -221,3 +221,55 @@ if __name__ == '__main__':
     # or wrap the dataframe in an object with a .to_pandas() method.
     # For demonstration purposes, this block is left empty.
     pass
+
+def create_mass_ew_density_plot3(peas_final, output_filename):
+    """
+    Creates and saves the mass vs. EW[OIII] density plot with two colorbars.
+    This version omits the top axis plot but includes a colorbar for the EELG density.
+
+    Args:
+        peas_final: vaex dataframe or similar object with .to_pandas() method.
+        output_filename (str): The path to save the output plot.
+    """
+    fig, ax = pf.create_plot()
+
+    peas_final_df = peas_final.to_pandas()
+    peas_final_df['log_oiii5007_ew'] = np.log10(peas_final_df['oiii5007_ew'])
+
+    # Plot all ELGs, this creates the first colorbar
+    plot_kde_with_contours(ax, peas_final_df, 'logmstellar', 'log_oiii5007_ew', cmap='magma_r')
+    ax.text(0.2, 0.90, 'ELGs', transform=ax.transAxes, fontsize=15, ha='right', weight='bold')
+
+    # Find the first colorbar's axes to position the second one
+    cbar1_ax = fig.axes[-1]
+    cbar1_pos = cbar1_ax.get_position()
+
+    eelgs_final_df = peas_final_df[peas_final_df['log_oiii5007_ew'] > 2]
+
+    # Plot EELG KDE on the main plot (ax) as well, without creating a new colorbar automatically
+    plot_kde_with_contours(ax, eelgs_final_df, 'logmstellar', 'log_oiii5007_ew', cmap='cividis', alpha=0.5, cbar=False)
+    ax.text(0.05, 0.95, 'EELGs', transform=ax.transAxes, fontsize=15, va='top', weight='bold')
+
+    # Manually create the second colorbar for the EELG distribution
+    if len(ax.collections) > 2:
+        mappable = ax.collections[2]
+        # Create a new axes for the second colorbar to the right of the first one
+        cbar2_ax = fig.add_axes([cbar1_pos.x1 + 0.01, cbar1_pos.y0, cbar1_pos.width, cbar1_pos.height])
+        cbar2 = fig.colorbar(mappable, cax=cbar2_ax)
+        cbar2.set_label('EELG Density')
+        # Optional: adjust ticks for the second colorbar if needed
+        current_ticks = cbar2.get_ticks()
+        if len(current_ticks) > 4:
+             cbar2.set_ticks(current_ticks[::2])
+
+
+    ax.set_xlabel(r'$\log_{10}\;\mathrm{M}_{\mathrm{stell}}$', fontsize=15)
+    ax.set_ylabel(r'$\log_{10}\;$EW[OIII]', fontsize=15)
+
+    ax.set_xlim([5.4, 11.3])
+    ax.set_ylim([-0.9, 3.4])
+    ax.fill_between([-100, 100], -5, 2, hatch='//', edgecolor='k', facecolor='none', zorder=-100)
+
+    pf.fix_plot(ax)
+
+    fig.savefig(output_filename, dpi=600, bbox_inches='tight')
