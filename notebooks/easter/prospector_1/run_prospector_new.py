@@ -269,7 +269,13 @@ model_params.append({'name': 'add_neb_continuum', 'N': 1,
                         
 model_params.append({'name': 'nebemlineinspec', 'N': 1,
                         'isfree': False,
-                        'init': False,
+                        'init': True,
+                        'prior_function_name': None,
+                        'prior_args': None})
+
+model_params.append({'name': 'marginalise_elines', 'N': 1,
+                        'isfree': False,
+                        'init': True,
                         'prior_function_name': None,
                         'prior_args': None})
 
