@@ -120,7 +120,7 @@ model_params.append({'name': 'logzsol', 'N': 1,
                         'init_disp': 0.25,
                         'disp_floor': 0.2,
                         'units': r'$\log (Z/Z_\odot)$',
-                        'prior': priors.TopHat(mini=-2.2, maxi=-1.2)})
+                        'prior': priors.TopHat(mini=-4.0, maxi=0)})
                         
 ###### SFH   ########
 model_params.append({'name': 'sfh', 'N':1,
@@ -242,7 +242,7 @@ model_params.append({'name': 'duste_umin', 'N': 1,
                         'init_disp': 10.0,
                         'disp_floor': 5.0,
                         'units': None,
-                        'prior': priors.TopHat(mini=-10, maxi=25.0)})
+                        'prior': priors.TopHat(mini=0.1, maxi=25.0)})
 
 model_params.append({'name': 'duste_qpah', 'N': 1,
                         'isfree': True,
@@ -284,13 +284,13 @@ model_params.append({'name': 'gas_logz', 'N': 1,
                         'init': 0.0,
                         'depends_on': tie_gas_logz,
                         'units': r'log Z/Z_\odot',
-                        'prior': priors.TopHat(mini=-2.0, maxi=0.5)})
+                        'prior': priors.TopHat(mini=-5.0, maxi=1.5)})
 
 model_params.append({'name': 'gas_logu', 'N': 1,
                         'isfree': True,
                         'init': -2.0,
                         'units': '',
-                        'prior': priors.TopHat(mini=-4.0, maxi=-1.0)})
+                        'prior': priors.TopHat(mini=-6.0, maxi=0.5)})
 
 ####### Calibration ##########
 model_params.append({'name': 'phot_jitter', 'N': 1,
@@ -319,7 +319,7 @@ for param in model_params:
         tparams.append(param)
 model_params = tparams
 
-def build_model(row, agelims =[6.0,7.0,7.5, 8.0, 8.5, 9.0, 0], **kwargs):
+def build_model(row, **kwargs):
 
     from astropy.cosmology import Planck18 as cosmo
     print('building model')
@@ -332,7 +332,24 @@ def build_model(row, agelims =[6.0,7.0,7.5, 8.0, 8.5, 9.0, 0], **kwargs):
     tuniv = cosmo.age(zred).value
 
     #### NONPARAMETRIC SFH ######
-    agelims[-1] = np.log10(tuniv*1e9)
+    # 7 bins total
+    # First bin: 0-5 Myr
+    # Remaining 6 bins are log-spaced until tuniv
+    
+    # Total of 8 bin edges
+    # Edges are in log10(years)
+    log_age_tuniv = np.log10(tuniv * 1e9)
+
+    # Define the upper edge of the first bin
+    log_age_5Myr = np.log10(5e6)
+
+    # Define the 7 log-spaced edges for the upper 6 bins
+    # We need 7 points to define 6 bins, from 5Myr to tuniv
+    upper_edges = np.linspace(log_age_5Myr, log_age_tuniv, 7)
+
+    # Combine with a low-age edge for the first bin (e.g. 1000 years)
+    agelims = np.concatenate(([0], upper_edges))
+    
     agebins = np.array([agelims[:-1], agelims[1:]])
     ncomp = len(agelims) - 1
 
@@ -490,7 +507,8 @@ if __name__ == '__main__':
         save_string = f'out/{name}'
         if os.path.isdir(save_string):
             os.mkdir(save_string)
-        nresults = len(glob(save_string+'/*'))
+
+        nresults = len(glob('out/*'))
 
         obs, model, sps = build_all(ROW,**run_params)
         run_params["sps_libraries"] = sps.ssp.libraries
