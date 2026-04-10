@@ -275,7 +275,7 @@ model_params.append({'name': 'nebemlineinspec', 'N': 1,
 
 model_params.append({'name': 'marginalise_elines', 'N': 1,
                         'isfree': False,
-                        'init': True,
+                        'init': False,
                         'prior_function_name': None,
                         'prior_args': None})
 
