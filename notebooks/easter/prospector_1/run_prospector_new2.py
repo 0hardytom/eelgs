@@ -488,6 +488,7 @@ def build_obs(row, **kwargs):
     obs['wavelength'] = wavelength.value
     obs['spectrum'] = flux_maggie.value
     obs['unc'] = flux_maggie.value/10
+    obs['mask'] = np.isfinite(flux_maggie.value)&(flux_maggie.value>0)
 
     return obs
 
@@ -518,15 +519,16 @@ run_params = {'verbose':True,
 
 if __name__ == '__main__':
 
-    PD_DIR ='sedrun.csv'
+    PD_DIR ='sedrunNEW.csv'
     TAB = Table(ascii.read(PD_DIR))
     for II,ROW in enumerate(TAB):
         name = ROW['object_id']
-        save_string = f'out/{name}'
+        save_string = f'out/peas/{name}'
         # if not os.path.isdir('out/'):
         #     os.mkdir(save_string)
 
-        nresults = len(glob('out/*'))
+        # nresults = len(glob('out/*'))
+        nresults = 0
 
         obs, model, sps = build_all(ROW,**run_params)
         run_params["sps_libraries"] = sps.ssp.libraries
