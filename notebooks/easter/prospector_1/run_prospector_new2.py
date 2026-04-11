@@ -8,7 +8,28 @@ from glob import glob
 from astropy.constants import c as speedoflight
 from prospect.models import priors, sedmodel
 
-
+elines_fromifutools = [
+    "[O III] 5007",
+    "[O III] 4959",
+    "[O II] 3726",
+    "[O II] 3729",
+    "Ba-alpha 6563",
+    "Ba-beta 4861",
+    "Ba-gamma 4341",
+    "Ba-delta 4101.76A",
+    "Ba-5 3970",
+    "He I 3888.63A",
+    "Ba-7 3835",
+    "[O III] 4363",
+    "[O II] 3867",
+    "[N II] 6584",
+    "[N II] 6548",
+    "[S II] 6716",
+    "[S II] 6731",
+    "[Ne V] 3426",
+    "He II 4685.64A",
+    "He I 5875.64A",
+]
 #------------------------
 # Convienence Functions
 #------------------------
@@ -187,7 +208,7 @@ model_params.append({'name': 'dust2', 'N': 1,
                         'init_disp': 0.15,
                         'disp_floor': 0.1,
                         'units': '',
-                        'prior': priors.ClippedNormal(mini=0.0, maxi=1.0, mean=0.15, sigma=0.2)})
+                        'prior': priors.ClippedNormal(mini=0.0, maxi=3.0, mean=0.15, sigma=0.2)})
 
 model_params.append({'name': 'dust_index', 'N': 1,
                         'isfree': True,
@@ -265,7 +286,13 @@ model_params.append({'name': 'nebemlineinspec', 'N': 1,
 
 model_params.append({'name': 'marginalise_elines', 'N': 1,
                         'isfree': False,
-                        'init': False,
+                        'init': True,
+                        'prior_function_name': None,
+                        'prior_args': None})
+
+model_params.append({'name': 'elines_to_fit', 'N': 1,
+                        'isfree': False,
+                        'init': elines_fromifutools,
                         'prior_function_name': None,
                         'prior_args': None})
 
