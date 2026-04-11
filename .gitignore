@@ -95,6 +95,7 @@ wandb/
 *.zip
 *.PNG
 *.png
+*.pdf
 *.jpg
 *.jpeg
 *.gif
