@@ -1,3 +1,4 @@
+import numpy as np
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -5,13 +6,14 @@ from astropy.cosmology import Planck15 as cosmo
 
 def calculate_cluster_metrics(tbl):
     """
-    Calculates LoS velocity, angular separation, and physical distance from a cluster center.
+    Calculates LoS velocity, angular separation, projected distance, and 3D distance from a cluster center.
 
     Parameters:
     tbl (astropy.table.Table): Table with columns 'ra', 'dec', 'cluster_ra', 'cluster_dec', 'z', 'zcluster'.
 
     Returns:
-    astropy.table.Table: Table with new columns 'los_velocity_kms', 'angular_separation_arcsec', 'physical_distance_mpc'.
+    astropy.table.Table: Table with new columns 'los_velocity_kms', 'angular_separation_arcsec', 
+                         'projected_distance_mpc', and 'distance_3d_mpc'.
     """
     c = 299792.458  # Speed of light in km/s
 
@@ -26,14 +28,21 @@ def calculate_cluster_metrics(tbl):
     tbl['angular_separation_arcsec'] = angular_separation.arcsec
     tbl['angular_separation_arcsec'].unit = 'arcsec'
 
-
-    # Calculate physical distance
+    # Calculate projected physical distance
     # Using the angular diameter distance to the cluster
     D_A = cosmo.angular_diameter_distance(tbl['zcluster'])
     # Small angle approximation: distance = angular_separation_in_radians * D_A
-    tbl['physical_distance_mpc'] = (angular_separation.radian * D_A).to(u.Mpc)
-    tbl['physical_distance_mpc'].unit = 'Mpc'
+    tbl['projected_distance_mpc'] = (angular_separation.radian * D_A).to(u.Mpc)
+    tbl['projected_distance_mpc'].unit = 'Mpc'
 
+    # Calculate 3D distance
+    d_c = cosmo.comoving_distance(tbl['zcluster'])
+    d_g = cosmo.comoving_distance(tbl['z'])
+    
+    # Law of cosines
+    distance_3d_sq = d_c**2 + d_g**2 - 2 * d_c * d_g * np.cos(angular_separation.radian)
+    tbl['distance_3d_mpc'] = np.sqrt(distance_3d_sq.value) * u.Mpc
+    tbl['distance_3d_mpc'].unit = 'Mpc'
 
     return tbl
 
