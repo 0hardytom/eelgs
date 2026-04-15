@@ -25,30 +25,34 @@ def process_spectrum(row, cube):
     # rest_spec = Spectrum(wave=rest_wave, data=spec.data, var=spec.var)
 
     # Manually calculate the continuum using a 20 Angstrom rolling median
-    wave = rest_wave
+    # wave = rest_wave
     flux = spec.data
     continuum_flux = np.zeros_like(flux)
-    half_window = 10.0  # 20 Angstrom window -> 10 on each side
+    # half_window = 10.0  # 20 Angstrom window -> 10 on each side
 
-    for i in tqdm(range(len(wave))):
-        w_center = wave[i]
-        # Find start and end indices for the window using a fast search
-        start_idx = np.searchsorted(wave, w_center - half_window, side='left')
-        end_idx = np.searchsorted(wave, w_center + half_window, side='right')
+    # for i in tqdm(range(len(wave))):
+    #     w_center = wave[i]
+    #     # Find start and end indices for the window using a fast search
+    #     start_idx = np.searchsorted(wave, w_center - half_window, side='left')
+    #     end_idx = np.searchsorted(wave, w_center + half_window, side='right')
         
-        window_flux = flux[start_idx:end_idx]
-        if window_flux.size > 0:
-            continuum_flux[i] = np.median(window_flux)
-        else:
-            continuum_flux[i] = flux[i]  # Fallback if window is empty
+    #     window_flux = flux[start_idx:end_idx]
+    #     if window_flux.size > 0:
+    #         continuum_flux[i] = np.median(window_flux)
+    #     else:
+    #         continuum_flux[i] = flux[i]  # Fallback if window is empty
     
+    flux_series = pd.Series(flux)
+    continuum_flux = flux_series.rolling(window=26, center=True,min_periods=1).median().values
+
+
     # Avoid division by zero or near-zero
     continuum_flux[continuum_flux < 1e-6] = 1e-6
     normalized_flux = spec.data / continuum_flux
 
     # Manually resample to a 2 Angstrom grid using interpolation
-    wave_min = np.ceil(spec.wave.get_start() / 2.) * 2.
-    wave_max = np.floor(spec.wave.get_end() / 2.) * 2.
+    wave_min = np.ceil(rest_wave[0] / 2.) * 2.
+    wave_max = np.floor(rest_wave[-1] / 2.) * 2.
     
     if wave_min >= wave_max:
         print(f"Wavelength range too small for resampling for ID {row['ID']}")
