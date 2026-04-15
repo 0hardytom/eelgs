@@ -203,105 +203,105 @@ def download_swift_image(coord, band_info, download_dir):
         return None
 
 
-def download_xmm_image(coord, band_info, download_dir):
-    """Queries the XMM-Newton Science Archive, downloads and extracts OM image."""
-    instrument = band_info[1]
-    filter_name = band_info[0]
-    print(f"  Querying XSA for XMM-Newton/{instrument} {filter_name}...")
-    try:
-        xmm = XMMNewton()
-        obs_table = xmm.query_region(coord, radius=5 * u.arcmin)
+# def download_xmm_image(coord, band_info, download_dir):
+#     """Queries the XMM-Newton Science Archive, downloads and extracts OM image."""
+#     instrument = band_info[1]
+#     filter_name = band_info[0]
+#     print(f"  Querying XSA for XMM-Newton/{instrument} {filter_name}...")
+#     try:
+#         xmm = XMMNewton()
+#         obs_table = xmm.query_region(coord, radius=5 * u.arcmin)
 
-        if not obs_table:
-            print(f"  No XMM-Newton observations found in the region.")
-            return None
+#         if not obs_table:
+#             print(f"  No XMM-Newton observations found in the region.")
+#             return None
         
-        # Find an observation that actually used the OM instrument in the right filter
-        obs_id = None
-        for row in obs_table:
-            if 'OM' in row['INSTRUMENTS'] and filter_name in row['OM_FILTER']:
-                obs_id = row['OBSERVATION_ID']
-                break
+#         # Find an observation that actually used the OM instrument in the right filter
+#         obs_id = None
+#         for row in obs_table:
+#             if 'OM' in row['INSTRUMENTS'] and filter_name in row['OM_FILTER']:
+#                 obs_id = row['OBSERVATION_ID']
+#                 break
         
-        if not obs_id:
-            print(f"  No observation found with OM using filter {filter_name}.")
-            return None
+#         if not obs_id:
+#             print(f"  No observation found with OM using filter {filter_name}.")
+#             return None
 
-        print(f"  Found XMM OBSID: {obs_id}. Downloading PPS data...")
+#         print(f"  Found XMM OBSID: {obs_id}. Downloading PPS data...")
         
-        # Download the PPS data pack for the OM instrument
-        xmm.download_data(observation_id=obs_id, level='PPS', inst='OM', download_dir=download_dir)
+#         # Download the PPS data pack for the OM instrument
+#         xmm.download_data(observation_id=obs_id, level='PPS', inst='OM', download_dir=download_dir)
 
-        # Find the downloaded tar file
-        tar_path = None
-        for item in os.listdir(download_dir):
-            if item.endswith(".tar.gz") or item.endswith(".TAR"):
-                tar_path = os.path.join(download_dir, item)
-                break
+#         # Find the downloaded tar file
+#         tar_path = None
+#         for item in os.listdir(download_dir):
+#             if item.endswith(".tar.gz") or item.endswith(".TAR"):
+#                 tar_path = os.path.join(download_dir, item)
+#                 break
         
-        if not tar_path:
-            print("  Could not find downloaded TAR archive.")
-            return None
+#         if not tar_path:
+#             print("  Could not find downloaded TAR archive.")
+#             return None
 
-        # Extract the tar file
-        print(f"  Extracting {os.path.basename(tar_path)}...")
-        with tarfile.open(tar_path, "r:*") as tar:
-            tar.extractall(path=download_dir)
-        os.remove(tar_path) # Clean up the archive
+#         # Extract the tar file
+#         print(f"  Extracting {os.path.basename(tar_path)}...")
+#         with tarfile.open(tar_path, "r:*") as tar:
+#             tar.extractall(path=download_dir)
+#         os.remove(tar_path) # Clean up the archive
 
-        # Search for the correct image file in the extracted contents
-        for root, _, files in os.walk(download_dir):
-            for file in files:
-                # OM image files often follow this pattern
-                if "IMAGE" in file and filter_name in file and file.endswith((".FTZ", ".fit", ".fits")):
-                    print(f"  Found image file: {file}")
-                    return os.path.join(root, file)
+#         # Search for the correct image file in the extracted contents
+#         for root, _, files in os.walk(download_dir):
+#             for file in files:
+#                 # OM image files often follow this pattern
+#                 if "IMAGE" in file and filter_name in file and file.endswith((".FTZ", ".fit", ".fits")):
+#                     print(f"  Found image file: {file}")
+#                     return os.path.join(root, file)
 
-        print(f"  Could not find a suitable image file for filter {filter_name} in the archive.")
-        return None
+#         print(f"  Could not find a suitable image file for filter {filter_name} in the archive.")
+#         return None
 
-    except Exception as e:
-        print(f"  Error downloading XMM-Newton data for {instrument} {filter_name}: {e}")
-        return None
+#     except Exception as e:
+#         print(f"  Error downloading XMM-Newton data for {instrument} {filter_name}: {e}")
+#         return None
 
 
-def query_des_catalogue(coord):
-    """Queries the DES DR1 catalogue from VizieR for photometry."""
-    print("  Querying VizieR for DES DR1 catalogue data...")
-    try:
-        v = VizieR(catalog='II/357/des_dr1', columns=['*'])
-        v.ROW_LIMIT = 1
-        result = v.query_region(coord, radius=2 * u.arcsec)
+# def query_des_catalogue(coord):
+#     """Queries the DES DR1 catalogue from VizieR for photometry."""
+#     print("  Querying VizieR for DES DR1 catalogue data...")
+#     try:
+#         v = VizieR(catalog='II/357/des_dr1', columns=['*'])
+#         v.ROW_LIMIT = 1
+#         result = v.query_region(coord, radius=2 * u.arcsec)
 
-        des_fluxes = {
-            'flux_DES_g': -999.0, 'flux_DES_r': -999.0,
-            'flux_DES_i': -999.0, 'flux_DES_z': -999.0,
-            'flux_DES_Y': -999.0
-        }
+#         des_fluxes = {
+#             'flux_DES_g': -999.0, 'flux_DES_r': -999.0,
+#             'flux_DES_i': -999.0, 'flux_DES_z': -999.0,
+#             'flux_DES_Y': -999.0
+#         }
 
-        if not result or len(result[0]) == 0:
-            print("  No DES DR1 source found within 2 arcsec.")
-            return des_fluxes
+#         if not result or len(result[0]) == 0:
+#             print("  No DES DR1 source found within 2 arcsec.")
+#             return des_fluxes
 
-        source = result[0][0]
-        bands = {'g': 'gmag', 'r': 'rmag', 'i': 'imag', 'z': 'zmag', 'Y': 'Ymag'}
-        for band_key, mag_col in bands.items():
-            band_name = f'flux_DES_{band_key}'
-            if mag_col in source.columns and source[mag_col] is not np.ma.masked:
-                magnitude = source[mag_col]
-                flux_ujy = 3631e6 * (10**(-0.4 * magnitude))
-                des_fluxes[band_name] = flux_ujy
-                print(f"  Found DES {band_key}-band flux: {flux_ujy:.2f} uJy")
+#         source = result[0][0]
+#         bands = {'g': 'gmag', 'r': 'rmag', 'i': 'imag', 'z': 'zmag', 'Y': 'Ymag'}
+#         for band_key, mag_col in bands.items():
+#             band_name = f'flux_DES_{band_key}'
+#             if mag_col in source.columns and source[mag_col] is not np.ma.masked:
+#                 magnitude = source[mag_col]
+#                 flux_ujy = 3631e6 * (10**(-0.4 * magnitude))
+#                 des_fluxes[band_name] = flux_ujy
+#                 print(f"  Found DES {band_key}-band flux: {flux_ujy:.2f} uJy")
         
-        return des_fluxes
+#         return des_fluxes
 
-    except Exception as e:
-        print(f"  Error querying DES data from VizieR: {e}")
-        return {
-            'flux_DES_g': -999.0, 'flux_DES_r': -999.0,
-            'flux_DES_i': -999.0, 'flux_DES_z': -999.0,
-            'flux_DES_Y': -999.0
-        }
+#     except Exception as e:
+#         print(f"  Error querying DES data from VizieR: {e}")
+#         return {
+#             'flux_DES_g': -999.0, 'flux_DES_r': -999.0,
+#             'flux_DES_i': -999.0, 'flux_DES_z': -999.0,
+#             'flux_DES_Y': -999.0
+#         }
 
 
 def perform_photometry(image_path, coord, instrument):
