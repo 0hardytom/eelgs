@@ -15,11 +15,12 @@ def process_spectrum(row, cube, common_wave_grid):
     """
     # try:
     # Create a circular aperture and extract the spectrum
-    print(f'processing {row['I']},{row['ID']}')
-    spec = cube.aperture((row['Y_PEAK_SN'], row['X_PEAK_SN']), 2, unit_center=None)
+    print(f'processing {row['cluster_key']},{row['object_id']}')
+    # spec = cube.aperture((row['Y_PEAK_SN'], row['X_PEAK_SN']), 2, unit_center=None)
+    spec = cube.aperture((row['dec'], row['ra']), 2)
 
     # Go to rest frame
-    z = row['Redshift']
+    z = row['z']
     observed_wave = spec.wave.coord()
     rest_wave = observed_wave / (1 + z)
     
@@ -58,7 +59,7 @@ def main():
     df = pd.read_csv(csv_path)
     
     # Filter out bad redshift values
-    df = df[df['Redshift'] > 0]
+    df = df[df['z'] > 0]
 
     # Define the common rest-frame wavelength grid for all spectra
     # This ensures all output spectra have the same length and wavelength points.
