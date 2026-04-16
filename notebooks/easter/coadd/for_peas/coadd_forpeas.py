@@ -51,7 +51,7 @@ def main():
     # Define paths
     csv_path = 'PEAS.csv'
     base_fits_path = '/Volumes/Expansion/exp_thardy/'
-    output_fits_path = 'coadd_spectra.fits'
+    output_fits_path = 'coadd_peas_spectra.fits'
 
     # Read the CSV
     print(f"Reading metadata from {csv_path}")
@@ -71,7 +71,7 @@ def main():
     print("Processing spectra...")
     
     # Group by cube file to avoid reopening files
-    grouped = df.groupby(['source_dir', 'key'])
+    grouped = df.groupby(['source_dir', 'cluster_key'])
     
     for (directory, key), group in tqdm(grouped, total=len(grouped)):
         fits_path = os.path.join(base_fits_path, directory, f"{key}_COMBINED_CUBE_MED_FINAL.fits")
@@ -88,8 +88,8 @@ def main():
             if resampled_flux is not None:
                 # Store as a dictionary
                 all_spectra.append({
-                    'ID': row['ID'],
-                    'Redshift': row['Redshift'],
+                    'ID': row['object_id'],
+                    'Redshift': row['z'],
                     'Wavelength': common_wave_grid,
                     'Flux': resampled_flux
                 })
