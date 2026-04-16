@@ -49,7 +49,7 @@ def main():
     Main function to run the co-addition preparation script.
     """
     # Define paths
-    csv_path = 'leadlines.csv'
+    csv_path = 'PEAS.csv'
     base_fits_path = '/Volumes/Expansion/exp_thardy/'
     output_fits_path = 'coadd_spectra.fits'
 
@@ -71,7 +71,7 @@ def main():
     print("Processing spectra...")
     
     # Group by cube file to avoid reopening files
-    grouped = df.groupby(['dir', 'key'])
+    grouped = df.groupby(['source_dir', 'key'])
     
     for (directory, key), group in tqdm(grouped, total=len(grouped)):
         fits_path = os.path.join(base_fits_path, directory, f"{key}_COMBINED_CUBE_MED_FINAL.fits")
