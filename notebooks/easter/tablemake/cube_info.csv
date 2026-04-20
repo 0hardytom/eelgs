@@ -1,4 +1,4 @@
-cluster_key,cluster_fullname,cluster_ra,cluster_dec,source_dir
+CUBEKEY,cluster_fullname,cluster_ra,cluster_dec,source_dir
 rxj0218m31,RXCJ0218.3-3141,34.58129863040806,-31.69939687668962,cubes
 a209,A209,22.969416197924584,-13.61209250359877,cubes
 rxj0232m44,RXCJ0232.2-4420,38.07857428318949,-44.34662663699782,cubes
